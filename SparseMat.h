@@ -82,6 +82,7 @@ private:
 template <typename T>
 MKL_sparse_matrix<T>::MKL_sparse_matrix(const MKL_sparse_matrix<T>& rhs) {
     static_assert(std::is_floating_point_v<T>);
+    std::cerr << "Copy constructing sparse matrix.\n";
     this->nnz = rhs.nnz;
     this->rows = rhs.rows;
     this->cols = rhs.cols;
@@ -95,7 +96,7 @@ MKL_sparse_matrix<T>::MKL_sparse_matrix(const MKL_sparse_matrix<T>& rhs) {
     std::memcpy(this->indices, rhs.indices, sizeof(int) * this->nnz);
     std::memcpy(this->indptrs, rhs.indptrs, sizeof(int) * (this->cols + 1));
 
-    this->init_mkl_handle();
+    this->init_mkl_handle();    
 }
 
 template <typename T>
@@ -106,6 +107,7 @@ MKL_sparse_matrix<T>& MKL_sparse_matrix<T>::operator=(MKL_sparse_matrix rhs) {
 
 template <typename T>
 MKL_sparse_matrix<T>::MKL_sparse_matrix(MKL_sparse_matrix&& other) {
+    std::cerr << "Move constructing sparse matrix.\n";
     this->nnz = other.nnz;
     this->rows = other.rows;
     this->cols = other.cols;
@@ -144,7 +146,6 @@ MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, c
     mat.indices = new int[nnz];
     mat.indptrs = new int[cols + 1];
 
-    std::cerr << "Copying data...\n";
     std::memcpy(mat.data, vals, sizeof(T) * nnz);
     //Assuming here that the narrowing cast to int32_t from things like uint32_t will fit.
     std::transform(row_idxs, row_idxs + nnz, mat.indices, [](auto x) { return static_cast<int>(x); });

@@ -47,6 +47,25 @@ TROTSMatFileData::TROTSMatFileData(const fs::path& path) {
     this->init_problem_data_structs();
 }
 
+TROTSMatFileData::TROTSMatFileData(TROTSMatFileData&& other) {
+    this->file_fp = other.file_fp;
+    this->data_struct = other.data_struct;
+    this->problem_struct = other.problem_struct;
+    this->matrix_struct = other.matrix_struct;
+
+    other.file_fp = nullptr;
+    other.data_struct = nullptr;
+    other.problem_struct = nullptr;
+    other.matrix_struct = nullptr;
+}
+
+TROTSMatFileData::~TROTSMatFileData() {
+    std::cerr << "Destroying MatFileData...\n";
+    Mat_VarFree(this->problem_struct);
+    Mat_VarFree(this->data_struct);
+    Mat_Close(this->file_fp);
+}
+
 void TROTSMatFileData::init_problem_data_structs() {
     this->problem_struct = Mat_VarRead(this->file_fp, "problem");
     check_null(this->problem_struct, "Unable to read problem struct from matfile\n.");
@@ -58,8 +77,8 @@ void TROTSMatFileData::init_problem_data_structs() {
     check_null(this->matrix_struct, "Unable to read matrix field from matfile\n");
 }
 
-TROTSProblem::TROTSProblem(const TROTSMatFileData& trots_data_) :
-    trots_data{trots_data_}
+TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
+    trots_data{std::move(trots_data_)}
 {
     matvar_t* problem_struct = this->trots_data.problem_struct;
     size_t num_entries = problem_struct->dims[1];
@@ -86,6 +105,7 @@ void TROTSProblem::read_dose_matrices() {
     int edge[] = {1, 1};
 
     size_t num_matrices = this->trots_data.matrix_struct->dims[1];
+    this->matrices.reserve(num_matrices);
     for (int i = 0; i < num_matrices; ++i) {
         std::cerr << "Reading dose matrix " << i << " of " << num_matrices << "...\n";
         int start[] = {0, i};

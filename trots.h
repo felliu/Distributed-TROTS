@@ -18,6 +18,11 @@
 struct TROTSMatFileData {
 public:
     TROTSMatFileData(const std::filesystem::path& file_path);
+    TROTSMatFileData(const TROTSMatFileData& other) = delete;
+    TROTSMatFileData& operator=(const TROTSMatFileData& rhs) = delete;
+
+    TROTSMatFileData(TROTSMatFileData&& data);
+    ~TROTSMatFileData();
 
     mat_t* file_fp;
     matvar_t* problem_struct;
@@ -29,7 +34,7 @@ private:
 
 class TROTSProblem { //: public OptimizationProblem {
 public:
-    TROTSProblem(const TROTSMatFileData& trots_data);
+    TROTSProblem(TROTSMatFileData&& trots_data);
 private:
     void read_dose_matrices();
 
