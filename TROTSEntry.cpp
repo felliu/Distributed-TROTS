@@ -8,19 +8,15 @@
 #include "util.h"
 
 namespace {
-
-    template <typename DestType>
-    DestType cast_from_double(matvar_t* var) {
-        assert(var->class_type == MAT_C_DOUBLE);
-        double* data = static_cast<double*>(var->data);
-        return static_cast<DestType>(*data);        
-    }
+    matrix_descr desc{.type = SPARSE_MATRIX_TYPE_GENERAL,
+                      .mode = SPARSE_FILL_MODE_LOWER,
+                      .diag = SPARSE_DIAG_NON_UNIT};
 
     FunctionType get_linear_function_type(int dataID, bool minimise, const std::string& roi_name, matvar_t* matrix_struct) {
         const int zero_indexed_dataID = dataID - 1;
         std::cerr << "Reading name field\n";
-        //The times when the function type is mean, the data.matrix struct should have an entry at dataID + 1 with the name "<ROI_name> + (mean)"...
-        matvar_t* matrix_entry_name_var = Mat_VarGetStructFieldByName(matrix_struct, "Name", zero_indexed_dataID + 1);
+        //The times when the function type is mean, the data.matrix struct should have an entry at dataID with the name "<ROI_name> + (mean)"...
+        matvar_t* matrix_entry_name_var = Mat_VarGetStructFieldByName(matrix_struct, "Name", zero_indexed_dataID);
         check_null(matrix_entry_name_var, "Failed to read name field of matrix entry\n.");
 
         std::string matrix_entry_name(static_cast<char*>(matrix_entry_name_var->data));
@@ -89,26 +85,39 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
 
     matvar_t* function_type = Mat_VarGetStructFieldByName(problem_struct_entry, "Type", 0);
     check_null(function_type, "Could not read the \"Type\" field from the problem struct\n");
-    int type = cast_from_double<int>(function_type);
+    int TROTS_type = cast_from_double<int>(function_type);
 
     std::cerr << "dataID: " << this->id << "\n";
 
     //An index of 1 means a "linear" function, which in reality can be one of three possibilities. Min, max and mean.
     //Determine which one it is.
-    if (type == 1)
+    if (TROTS_type == 1)
         this->type = get_linear_function_type(this->id, this->minimise, this->roi_name, matrix_struct);
     else
-        this->type = get_nonlinear_function_type(type);
+        this->type = get_nonlinear_function_type(TROTS_type);
 
-    std::cerr << "Reading Matrix\n";
-    /*
-    if (this->type == FunctionType::Mean) {
-        std::vector<double> A = get_mean_vector(this->id, matrix_struct);
-        this->matrix.emplace< std::vector<double> >(std::move(A));
-    } else {
-        this->matrix.emplace<MKL_sparse_matrix<double>>(
-            read_and_cvt_sparse_mat(this->id, matrix_struct)
-        );
+    //In the case of quadratic cost function, we allocate space in dot_product_tmp to store the intermediate result when computing the quadratic
+    //cost function using MKL.
+    if (this->type == FunctionType::Quadratic) {
+        auto num_rows = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_rows();
+        this->dot_product_tmp.resize(num_rows);
     }
-    */
+}
+
+double TROTSEntry::calc_value(const double* x) const {
+    switch (this->type) {
+        case FunctionType::Quadratic:
+            return this->calc_quadratic(x);
+        default:
+            throw "Not implemented yet!\n";
+    }
+}
+
+double TROTSEntry::calc_quadratic(const double* x) const {
+    double val = 0.0;
+    const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    const auto status = mkl_sparse_d_dotmv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, matrix.mkl_handle, desc, x, 0.0, &this->dot_product_tmp[0], &val);
+    assert(check_MKL_status(status));
+    val += this->c;
+    return val;
 }

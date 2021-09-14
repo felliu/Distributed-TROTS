@@ -36,9 +36,9 @@ namespace {
         const int cols = static_cast<int>(matrix_data_var->dims[1]);
 
         return MKL_sparse_matrix<double>::from_CSC_mat(nnz, rows, cols,
-                                                           static_cast<double*>(matlab_sparse_m->data),
-                                                           matlab_sparse_m->ir,
-                                                           matlab_sparse_m->jc);
+                                                       static_cast<double*>(matlab_sparse_m->data),
+                                                       matlab_sparse_m->ir,
+                                                       matlab_sparse_m->jc);
     }
 }
 
@@ -53,15 +53,14 @@ TROTSMatFileData::TROTSMatFileData(TROTSMatFileData&& other) {
     this->problem_struct = other.problem_struct;
     this->matrix_struct = other.matrix_struct;
 
-    other.file_fp = nullptr;
-    other.data_struct = nullptr;
-    other.problem_struct = nullptr;
-    other.matrix_struct = nullptr;
+    other.file_fp = NULL;
+    other.data_struct = NULL;
+    other.problem_struct = NULL;
+    other.matrix_struct = NULL;
 }
 
 TROTSMatFileData::~TROTSMatFileData() {
     std::cerr << "Destroying MatFileData...\n";
-    Mat_VarFree(this->problem_struct);
     Mat_VarFree(this->data_struct);
     Mat_Close(this->file_fp);
 }
@@ -98,6 +97,11 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
         else
             this->objective_entries.push_back(entry );
     }
+
+    matvar_t* misc_struct = Mat_VarGetStructFieldByName(this->trots_data.data_struct, "misc", 0);
+    matvar_t* size_var = Mat_VarGetStructFieldByName(misc_struct, "size", 0);
+    this->num_vars = cast_from_double<int>(size_var);
+    std::cerr << "Num vars: " << this->num_vars << "\n";
 }
 
 void TROTSProblem::read_dose_matrices() {
@@ -127,7 +131,11 @@ void TROTSProblem::read_dose_matrices() {
             );
         
         //Avoid storing the matrix data twice.
-        Mat_VarFree(matrix_entry);
+        Mat_VarFree(A);
+
+        //To avoid double free later, we should set this entry in the matrix struct to some placeholder value
+        matvar_t* placeholder = Mat_VarCalloc();
+        Mat_VarSetStructFieldByName(matrix_entry, "A", 0, placeholder);
     }
 }
 

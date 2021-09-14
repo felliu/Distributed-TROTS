@@ -57,6 +57,18 @@ public:
 
     MKL_sparse_matrix(MKL_sparse_matrix&& rhs);
 
+    size_t get_rows() const noexcept {
+        return this->rows;
+    }
+
+    size_t get_cols() const noexcept {
+        return this->cols;
+    }
+
+    size_t get_nnz() const noexcept {
+        return this->nnz;
+    }
+
     friend void swap(MKL_sparse_matrix& m1, MKL_sparse_matrix& m2) {
         std::swap(m1.data, m2.data);
         std::swap(m1.indices, m2.indices);
@@ -69,10 +81,12 @@ public:
     }
 
     ~MKL_sparse_matrix();
+
+    //TODO:Refactor so that this class handles more of the sparse BLAS
+    MKL_mat_handle mkl_handle;
 private:
     void init_mkl_handle();
     StorageTypeInternal sp_type;
-    MKL_mat_handle mkl_handle;
     size_t nnz, rows, cols;
     T* data;
     int* indices; //Col indices if CSR and row indices if CSC.
@@ -82,7 +96,6 @@ private:
 template <typename T>
 MKL_sparse_matrix<T>::MKL_sparse_matrix(const MKL_sparse_matrix<T>& rhs) {
     static_assert(std::is_floating_point_v<T>);
-    std::cerr << "Copy constructing sparse matrix.\n";
     this->nnz = rhs.nnz;
     this->rows = rhs.rows;
     this->cols = rhs.cols;
@@ -96,7 +109,7 @@ MKL_sparse_matrix<T>::MKL_sparse_matrix(const MKL_sparse_matrix<T>& rhs) {
     std::memcpy(this->indices, rhs.indices, sizeof(int) * this->nnz);
     std::memcpy(this->indptrs, rhs.indptrs, sizeof(int) * (this->cols + 1));
 
-    this->init_mkl_handle();    
+    this->init_mkl_handle();
 }
 
 template <typename T>
@@ -107,7 +120,6 @@ MKL_sparse_matrix<T>& MKL_sparse_matrix<T>::operator=(MKL_sparse_matrix rhs) {
 
 template <typename T>
 MKL_sparse_matrix<T>::MKL_sparse_matrix(MKL_sparse_matrix&& other) {
-    std::cerr << "Move constructing sparse matrix.\n";
     this->nnz = other.nnz;
     this->rows = other.rows;
     this->cols = other.cols;
@@ -157,7 +169,7 @@ MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, c
 
 template <typename T>
 void MKL_sparse_matrix<T>::init_mkl_handle() {
-static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
     if (sp_type == StorageTypeInternal::CSC) {
         sparse_matrix_t csc_tmp_handle = nullptr;
         if constexpr (std::is_same_v<T, double>) {

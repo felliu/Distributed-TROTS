@@ -18,6 +18,7 @@
 struct TROTSMatFileData {
 public:
     TROTSMatFileData(const std::filesystem::path& file_path);
+    
     TROTSMatFileData(const TROTSMatFileData& other) = delete;
     TROTSMatFileData& operator=(const TROTSMatFileData& rhs) = delete;
 
@@ -35,13 +36,17 @@ private:
 class TROTSProblem { //: public OptimizationProblem {
 public:
     TROTSProblem(TROTSMatFileData&& trots_data);
+
+    //TODO: Make these private
+    std::vector<TROTSEntry> objective_entries;
+    std::vector<TROTSEntry> constraint_entries;
+    int get_num_vars() const noexcept { return this->num_vars; }
+    
 private:
     void read_dose_matrices();
 
+    int num_vars;
     TROTSMatFileData trots_data;
-    std::vector<TROTSEntry> objective_entries;
-    std::vector<TROTSEntry> constraint_entries;
-    
     //List of matrix entries, indexed by dataID.
     //If the FunctionType is mean, the value is computed using a dot product with a dense vector,
     //In other cases, the dose is calculated using a dose deposition matrix.

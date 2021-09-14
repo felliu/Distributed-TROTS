@@ -2,6 +2,28 @@
 
 #include <filesystem>
 #include <iostream>
+#include <random>
+
+std::vector<double> init_rand_vector(int size) {
+    std::vector<double> x;
+    x.reserve(size);
+    for (int i = 0; i < size; ++i)
+        x.push_back(std::rand() / static_cast<double>(RAND_MAX));
+    
+    return x;
+}
+
+void test_quadratic_calc(const std::vector<TROTSEntry>& entries, const std::vector<double>& x) {
+    int idx = 0;
+    for (const auto& entry : entries) {
+        std::cerr << "Checking entry number: " << idx << "\n";
+        if (entry.function_type() == FunctionType::Quadratic) {
+            double val = entry.calc_value(x.data());
+            std::cerr << "Val: " << val << "\n";
+        }
+        ++idx;
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -15,6 +37,11 @@ int main(int argc, char* argv[])
     std::filesystem::path path{path_str};
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
+
+    std::cerr << "Calculating quadratic objectives...\n";
+    std::vector<double> x(trots_problem.get_num_vars(), 1.0); // = init_rand_vector(trots_problem.get_num_vars());
+    test_quadratic_calc(trots_problem.objective_entries, x);
+    test_quadratic_calc(trots_problem.constraint_entries, x);
     return 0;
     /*
     std::cerr << "Reading matfile...";
