@@ -36,9 +36,9 @@ namespace {
         return false;
     }
 
-    matrix_descr desc{.type = SPARSE_MATRIX_TYPE_GENERAL,
-                      .mode = SPARSE_FILL_MODE_LOWER,
-                      .diag = SPARSE_DIAG_NON_UNIT};
+    matrix_descr desc{ SPARSE_MATRIX_TYPE_GENERAL,
+                       SPARSE_FILL_MODE_LOWER,
+                       SPARSE_DIAG_NON_UNIT};
 }
 
 //Internally, we might store the data in CSC format, since we read them from matlab.
@@ -152,6 +152,7 @@ MKL_sparse_matrix<T>::~MKL_sparse_matrix() {
     delete[] this->indices;
     delete[] this->indptrs;
     mkl_sparse_destroy(this->mkl_handle);
+    mkl_sparse_destroy(this->_csc_handle);
 }
 
 template <typename T>
@@ -227,8 +228,7 @@ double MKL_sparse_matrix<T>::quad_mul(const T* x, T* y) const {
     double val = 0.0;
 
     if constexpr (std::is_same_v<T, double>)
-        status = mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y);
-        //status = mkl_sparse_d_dotmv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y, &val);
+        status = mkl_sparse_d_dotmv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y, &val);
     else
         status = mkl_sparse_s_dotmv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y, &val);
 

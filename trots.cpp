@@ -15,11 +15,12 @@ namespace {
         assert(matrix_data_var->dims[0] == 1); //Should be a pure column vector
         size_t num_elems = matrix_data_var->dims[1];
 
+        //The mean vectors are stored in single precision, for whatever reason.
+        assert(matrix_data_var->data_type == MAT_T_SINGLE);
         std::vector<double> A;
         A.reserve(num_elems);
-        double* data = static_cast<double*>(matrix_data_var->data);
-        for (size_t i = 0; i < num_elems; ++i)
-            A.push_back(data[i]);
+        float* data = static_cast<float*>(matrix_data_var->data);
+        std::transform(data, data + num_elems, std::back_inserter(A), [](const float x) { return static_cast<double>(x); });
 
         return A;
     }
@@ -29,6 +30,7 @@ namespace {
         matvar_t* matrix_data_var = Mat_VarGetStructFieldByName(matrix_entry, "A", 0);
         check_null(matrix_data_var, "Could not read matrix A from struct.\n");
         assert(matrix_data_var->class_type == MAT_C_SPARSE);
+        assert(matrix_data_var->data_type == MAT_T_DOUBLE);
 
         mat_sparse_t* matlab_sparse_m = static_cast<mat_sparse_t*>(matrix_data_var->data);
         const int nnz = static_cast<int>(matlab_sparse_m->ndata);

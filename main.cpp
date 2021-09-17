@@ -34,6 +34,11 @@ void test_value_calc(const std::vector<TROTSEntry>& entries, const std::vector<d
             std::cerr << "Type: Min\tVal: " << val << "\n";
         }
 
+        else if (entry.function_type() == FunctionType::Mean) {
+            double val = entry.calc_value(x.data());
+            std::cerr << "Type: Mean\tVal: " << val << "\n";
+        }
+
 
         ++idx;
     }

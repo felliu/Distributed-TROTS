@@ -38,7 +38,8 @@ namespace {
 TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
                        const std::vector<std::variant<MKL_sparse_matrix<double>,
                                          std::vector<double>>
-                                        >& mat_refs)
+                                        >& mat_refs) :
+    rhs{0}, weight{0}, c{0}
 {
     assert(problem_struct_entry->class_type == MAT_C_STRUCT);
     //Try to ensure that the structure is a scalar (1x1) struct.
@@ -102,6 +103,12 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
         auto num_rows = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_rows();
         this->y_vec.resize(num_rows);
     }
+
+    if (this->type == FunctionType::Quadratic) {
+        matvar_t* c_var = Mat_VarGetStructFieldByName(matrix_struct, "c", this->id - 1);
+        assert(c_var->data_type == MAT_T_SINGLE);
+        this->c = static_cast<double>(*static_cast<float*>(c_var->data));
+    }
 }
 
 double TROTSEntry::calc_value(const double* x) const {
@@ -112,15 +119,16 @@ double TROTSEntry::calc_value(const double* x) const {
             return this->calc_max(x);
         case FunctionType::Min:
             return this->calc_min(x);
+        case FunctionType::Mean:
+            return this->calc_mean(x);
         default:
             throw "Not implemented yet!\n";
     }
 }
 
 double TROTSEntry::calc_quadratic(const double* x) const {
-    double val = 0.0;
     const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    return matrix.quad_mul(x, &this->y_vec[0]);
+    return matrix.quad_mul(x, &this->y_vec[0]) + this->c;
 }
 
 double TROTSEntry::calc_max(const double* x) const {
@@ -137,4 +145,9 @@ double TROTSEntry::calc_min(const double* x) const {
 
     const double min_elem = *std::min_element(this->y_vec.cbegin(), this->y_vec.cend());
     return min_elem;
+}
+
+double TROTSEntry::calc_mean(const double* x) const {
+    const auto vector = std::get<std::vector<double>>(*(this->matrix_ref));
+    return cblas_ddot(vector.size(), x, 1, &vector[0], 1);
 }
