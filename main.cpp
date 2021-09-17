@@ -9,18 +9,32 @@ std::vector<double> init_rand_vector(int size) {
     x.reserve(size);
     for (int i = 0; i < size; ++i)
         x.push_back(std::rand() / static_cast<double>(RAND_MAX));
-    
+
     return x;
 }
 
-void test_quadratic_calc(const std::vector<TROTSEntry>& entries, const std::vector<double>& x) {
+void test_value_calc(const std::vector<TROTSEntry>& entries, const std::vector<double>& x) {
     int idx = 0;
     for (const auto& entry : entries) {
         std::cerr << "Checking entry number: " << idx << "\n";
+        std::cerr << "Name: " << entry.get_roi_name() << "\n";
         if (entry.function_type() == FunctionType::Quadratic) {
             double val = entry.calc_value(x.data());
-            std::cerr << "Val: " << val << "\n";
+            std::cerr << "Type: Quadratic\tVal: " << val << "\n";
         }
+
+        else if (entry.function_type() == FunctionType::Max) {
+            std::cerr << "x sz: " << x.size() << "\n";
+            double val = entry.calc_value(x.data());
+            std::cerr << "Type: Max\tVal: " << val << "\n";
+        }
+
+        else if (entry.function_type() == FunctionType::Min) {
+            double val = entry.calc_value(x.data());
+            std::cerr << "Type: Min\tVal: " << val << "\n";
+        }
+
+
         ++idx;
     }
 }
@@ -40,8 +54,8 @@ int main(int argc, char* argv[])
 
     std::cerr << "Calculating quadratic objectives...\n";
     std::vector<double> x(trots_problem.get_num_vars(), 1.0); // = init_rand_vector(trots_problem.get_num_vars());
-    test_quadratic_calc(trots_problem.objective_entries, x);
-    test_quadratic_calc(trots_problem.constraint_entries, x);
+    test_value_calc(trots_problem.objective_entries, x);
+    test_value_calc(trots_problem.constraint_entries, x);
     return 0;
     /*
     std::cerr << "Reading matfile...";

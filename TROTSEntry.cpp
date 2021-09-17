@@ -8,9 +8,7 @@
 #include "util.h"
 
 namespace {
-    matrix_descr desc{.type = SPARSE_MATRIX_TYPE_GENERAL,
-                      .mode = SPARSE_FILL_MODE_LOWER,
-                      .diag = SPARSE_DIAG_NON_UNIT};
+    const char* func_type_names[] = {"Min", "Max", "Mean", "Quadratic", "gEUD", "LTCP", "DVH", "Chain"};
 
     FunctionType get_linear_function_type(int dataID, bool minimise, const std::string& roi_name, matvar_t* matrix_struct) {
         const int zero_indexed_dataID = dataID - 1;
@@ -20,8 +18,10 @@ namespace {
         check_null(matrix_entry_name_var, "Failed to read name field of matrix entry\n.");
 
         std::string matrix_entry_name(static_cast<char*>(matrix_entry_name_var->data));
-        
-        if (matrix_entry_name == (roi_name + " (mean)"))
+        std::cerr << "Matrix name: " << matrix_entry_name << "\n";
+
+        auto n = matrix_entry_name.find("(mean)");
+        if (n != std::string::npos)
             return FunctionType::Mean;
 
         return minimise ? FunctionType::Max : FunctionType::Min;
@@ -59,7 +59,7 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     check_null(id_var, "Could not read id field from struct\n");
     this->id = cast_from_double<int>(id_var);
 
-    matrix_ref = &mat_refs[this->id - 1];
+    this->matrix_ref = &mat_refs[this->id - 1];
 
     std::cerr << "Reading Minimise\n";
 
@@ -86,9 +86,7 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     matvar_t* function_type = Mat_VarGetStructFieldByName(problem_struct_entry, "Type", 0);
     check_null(function_type, "Could not read the \"Type\" field from the problem struct\n");
     int TROTS_type = cast_from_double<int>(function_type);
-
     std::cerr << "dataID: " << this->id << "\n";
-
     //An index of 1 means a "linear" function, which in reality can be one of three possibilities. Min, max and mean.
     //Determine which one it is.
     if (TROTS_type == 1)
@@ -96,11 +94,13 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     else
         this->type = get_nonlinear_function_type(TROTS_type);
 
-    //In the case of quadratic cost function, we allocate space in dot_product_tmp to store the intermediate result when computing the quadratic
-    //cost function using MKL.
-    if (this->type == FunctionType::Quadratic) {
+    std::cerr << "Function type: " << func_type_names[static_cast<int>(this->type)] << "\n";
+    std::cerr << "Variant holds MKL_matrix? " << std::holds_alternative<MKL_sparse_matrix<double>>(*this->matrix_ref) << "\n";
+    //A lot of the objective functions require a temporary y vector to hold the dose. To avoid allocating that space for each
+    //call to compute the objective value, we pre-allocate storage for it in this->y_vec.
+    if (this->type != FunctionType::Mean) {
         auto num_rows = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_rows();
-        this->dot_product_tmp.resize(num_rows);
+        this->y_vec.resize(num_rows);
     }
 }
 
@@ -108,6 +108,10 @@ double TROTSEntry::calc_value(const double* x) const {
     switch (this->type) {
         case FunctionType::Quadratic:
             return this->calc_quadratic(x);
+        case FunctionType::Max:
+            return this->calc_max(x);
+        case FunctionType::Min:
+            return this->calc_min(x);
         default:
             throw "Not implemented yet!\n";
     }
@@ -116,8 +120,21 @@ double TROTSEntry::calc_value(const double* x) const {
 double TROTSEntry::calc_quadratic(const double* x) const {
     double val = 0.0;
     const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    const auto status = mkl_sparse_d_dotmv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, matrix.mkl_handle, desc, x, 0.0, &this->dot_product_tmp[0], &val);
-    assert(check_MKL_status(status));
-    val += this->c;
-    return val;
+    return matrix.quad_mul(x, &this->y_vec[0]);
+}
+
+double TROTSEntry::calc_max(const double* x) const {
+    const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    matrix.vec_mul(x, &this->y_vec[0]);
+
+    const double max_elem = *std::max_element(this->y_vec.cbegin(), this->y_vec.cend());
+    return max_elem;
+}
+
+double TROTSEntry::calc_min(const double* x) const {
+    const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    matrix.vec_mul(x, &this->y_vec[0]);
+
+    const double min_elem = *std::min_element(this->y_vec.cbegin(), this->y_vec.cend());
+    return min_elem;
 }

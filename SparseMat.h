@@ -11,7 +11,7 @@
 namespace {
     bool check_MKL_status(sparse_status_t status) {
         switch (status) {
-            case SPARSE_STATUS_SUCCESS: 
+            case SPARSE_STATUS_SUCCESS:
                 return true;
             case SPARSE_STATUS_NOT_INITIALIZED:
                 std::cerr << "Not initialized error encountered in sparse MKL.\n";
@@ -35,6 +35,10 @@ namespace {
 
         return false;
     }
+
+    matrix_descr desc{.type = SPARSE_MATRIX_TYPE_GENERAL,
+                      .mode = SPARSE_FILL_MODE_LOWER,
+                      .diag = SPARSE_DIAG_NON_UNIT};
 }
 
 //Internally, we might store the data in CSC format, since we read them from matlab.
@@ -48,7 +52,7 @@ class MKL_sparse_matrix {
 using MKL_mat_handle = sparse_matrix_t;
 public:
     template <typename IdxType>
-    static MKL_sparse_matrix from_CSC_mat(int nnz, int rows, int cols, 
+    static MKL_sparse_matrix from_CSC_mat(int nnz, int rows, int cols,
                                           const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs);
     MKL_sparse_matrix() = default;
 
@@ -80,17 +84,23 @@ public:
         std::swap(m1.cols, m2.cols);
     }
 
+    //Computes A*x and stores the result in y.
+    void vec_mul(const T* x, T* y) const;
+    //Computes the value of the quadratic form x^T * A * x and returns the value.
+    //The value A * x is stored in y.
+    double quad_mul(const T* x, T* y) const;
+
     ~MKL_sparse_matrix();
 
-    //TODO:Refactor so that this class handles more of the sparse BLAS
-    MKL_mat_handle mkl_handle;
 private:
     void init_mkl_handle();
+    MKL_mat_handle mkl_handle;
+    MKL_mat_handle _csc_handle;
     StorageTypeInternal sp_type;
     size_t nnz, rows, cols;
     T* data;
     int* indices; //Col indices if CSR and row indices if CSC.
-    int* indptrs; 
+    int* indptrs;
 };
 
 template <typename T>
@@ -170,31 +180,61 @@ MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, c
 template <typename T>
 void MKL_sparse_matrix<T>::init_mkl_handle() {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+    sparse_status_t status = SPARSE_STATUS_SUCCESS;
     if (sp_type == StorageTypeInternal::CSC) {
-        sparse_matrix_t csc_tmp_handle = nullptr;
         if constexpr (std::is_same_v<T, double>) {
-            const auto status = mkl_sparse_d_create_csc(&csc_tmp_handle,
-                                                        SPARSE_INDEX_BASE_ZERO,
-                                                        this->rows, this->cols,
-                                                        this->indptrs, this->indptrs + 1,
-                                                        this->indices, this->data);
+            status = mkl_sparse_d_create_csc(&this->_csc_handle,
+                                             SPARSE_INDEX_BASE_ZERO,
+                                             this->rows, this->cols,
+                                             this->indptrs, this->indptrs + 1,
+                                             this->indices, this->data);
             assert(check_MKL_status(status));
         }
         else if constexpr (std::is_same_v<T, float>) {
-            const auto status = mkl_sparse_s_create_csc(&csc_tmp_handle,
-                                                        SPARSE_INDEX_BASE_ZERO,
-                                                        this->rows, this->cols,
-                                                        this->indptrs, this->indptrs + 1,
-                                                        this->indices, this->data);
+            status = mkl_sparse_s_create_csc(&this->_csc_handle,
+                                             SPARSE_INDEX_BASE_ZERO,
+                                             this->rows, this->cols,
+                                             this->indptrs, this->indptrs + 1,
+                                             this->indices, this->data);
             assert(check_MKL_status(status));
         }
 
         this->mkl_handle = nullptr;
-        mkl_sparse_convert_csr(csc_tmp_handle, SPARSE_OPERATION_NON_TRANSPOSE, &this->mkl_handle);
-        mkl_sparse_destroy(csc_tmp_handle);
+        status = mkl_sparse_convert_csr(this->_csc_handle, SPARSE_OPERATION_NON_TRANSPOSE, &this->mkl_handle);
+        assert(check_MKL_status(status));
     } else {
         throw "Internal storage type CSR not implemented yet!\n";
     }
+}
+
+template <typename T>
+void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y) const {
+    static_assert(std::is_same_v<T, double> || std::is_same_v<T, float>);
+    sparse_status_t status = SPARSE_STATUS_SUCCESS;
+
+    if constexpr (std::is_same_v<T, double>)
+        status = mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y);
+    else
+        status = mkl_sparse_s_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y);
+
+    assert(check_MKL_status(status));
+}
+
+template <typename T>
+double MKL_sparse_matrix<T>::quad_mul(const T* x, T* y) const {
+    static_assert(std::is_same_v<T, double> || std::is_same_v<T, float>);
+    sparse_status_t status = SPARSE_STATUS_SUCCESS;
+    double val = 0.0;
+
+    if constexpr (std::is_same_v<T, double>)
+        status = mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y);
+        //status = mkl_sparse_d_dotmv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y, &val);
+    else
+        status = mkl_sparse_s_dotmv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y, &val);
+
+    assert(check_MKL_status(status));
+
+    return val;
 }
 
 

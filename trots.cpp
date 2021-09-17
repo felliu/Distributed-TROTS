@@ -111,7 +111,7 @@ void TROTSProblem::read_dose_matrices() {
     size_t num_matrices = this->trots_data.matrix_struct->dims[1];
     this->matrices.reserve(num_matrices);
     for (int i = 0; i < num_matrices; ++i) {
-        std::cerr << "Reading dose matrix " << i << " of " << num_matrices << "...\n";
+        std::cerr << "Reading dose matrix " << i + 1 << " of " << num_matrices << "...\n";
         int start[] = {0, i};
         matvar_t* matrix_entry = Mat_VarGetStructs(this->trots_data.matrix_struct, start, stride, edge, 0);
         check_null(matrix_entry, "Failed to read entry " + std::to_string(i) + " from matrix.data\n");
@@ -121,14 +121,18 @@ void TROTSProblem::read_dose_matrices() {
         
         //For the mean functions, the "A"-matrix is reduced to a dense vector.
         //Check if we have a sparse matrix or dense vector
-        if (A->class_type == MAT_C_SPARSE)
+        if (A->class_type == MAT_C_SPARSE) {
+            std::cerr << "Sparse mat found!\n";
             new_variant.emplace<MKL_sparse_matrix<double>>(
                 read_and_cvt_sparse_mat(matrix_entry)
             );
-        else
+        }
+        else {
+            std::cerr << "Dense vector found!\n";
             new_variant.emplace<std::vector<double>>(
                 get_mean_vector(matrix_entry)
             );
+        }
         
         //Avoid storing the matrix data twice.
         Mat_VarFree(A);

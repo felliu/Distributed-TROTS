@@ -17,8 +17,11 @@ public:
     bool is_constraint() const noexcept { return this->is_cons; }
     double calc_value(const double* x) const;
     FunctionType function_type() const noexcept { return this->type; }
+    std::string get_roi_name() const { return this->roi_name; }
 private:
     double calc_quadratic(const double* x) const;
+    double calc_max(const double* x) const;
+    double calc_min(const double* x) const;
     int id;
     std::string roi_name;
     std::vector<double> func_params;
@@ -34,9 +37,9 @@ private:
     const std::variant<MKL_sparse_matrix<double>, std::vector<double>>* matrix_ref;
     double c; //Scalar factor used in quadratic cost functions.
 
-    //When the objective function is quadratic, the MKL sparse BLAS function mkl_sparse_d_dotmv
-    //needs an input array for the matrix-vector product result, even though we are not interested in it in our case.
-    mutable std::vector<double> dot_product_tmp;
+    //When calculating many objective values, a temporary store for the A*x is needed. Provide it here once so it does not
+    //need to be allocated every time.
+    mutable std::vector<double> y_vec;
 };
 
 
