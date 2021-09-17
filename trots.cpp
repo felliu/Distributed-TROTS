@@ -14,13 +14,13 @@ namespace {
         check_null(matrix_data_var, "Could not read matrix A from struct.\n");
         assert(matrix_data_var->dims[0] == 1); //Should be a pure column vector
         size_t num_elems = matrix_data_var->dims[1];
-        
+
         std::vector<double> A;
         A.reserve(num_elems);
         double* data = static_cast<double*>(matrix_data_var->data);
         for (size_t i = 0; i < num_elems; ++i)
             A.push_back(data[i]);
-        
+
         return A;
     }
 
@@ -62,13 +62,14 @@ TROTSMatFileData::TROTSMatFileData(TROTSMatFileData&& other) {
 TROTSMatFileData::~TROTSMatFileData() {
     std::cerr << "Destroying MatFileData...\n";
     Mat_VarFree(this->data_struct);
+    Mat_VarFree(this->problem_struct);
     Mat_Close(this->file_fp);
 }
 
 void TROTSMatFileData::init_problem_data_structs() {
     this->problem_struct = Mat_VarRead(this->file_fp, "problem");
     check_null(this->problem_struct, "Unable to read problem struct from matfile\n.");
-    
+
     this->data_struct = Mat_VarRead(this->file_fp, "data");
     check_null(this->data_struct, "Unable to read data variable from matfile\n");
 
@@ -113,12 +114,12 @@ void TROTSProblem::read_dose_matrices() {
     for (int i = 0; i < num_matrices; ++i) {
         std::cerr << "Reading dose matrix " << i + 1 << " of " << num_matrices << "...\n";
         int start[] = {0, i};
-        matvar_t* matrix_entry = Mat_VarGetStructs(this->trots_data.matrix_struct, start, stride, edge, 0);
+        matvar_t* matrix_entry = Mat_VarGetStructs(this->trots_data.matrix_struct, start, stride, edge, 1);
         check_null(matrix_entry, "Failed to read entry " + std::to_string(i) + " from matrix.data\n");
         matvar_t* A = Mat_VarGetStructFieldByName(matrix_entry, "A", 0);
         check_null(A, "Failed to read A from entry " + std::to_string(i) + " in matrix.data\n");
         auto& new_variant = this->matrices.emplace_back();
-        
+
         //For the mean functions, the "A"-matrix is reduced to a dense vector.
         //Check if we have a sparse matrix or dense vector
         if (A->class_type == MAT_C_SPARSE) {
@@ -133,13 +134,9 @@ void TROTSProblem::read_dose_matrices() {
                 get_mean_vector(matrix_entry)
             );
         }
-        
-        //Avoid storing the matrix data twice.
-        Mat_VarFree(A);
 
-        //To avoid double free later, we should set this entry in the matrix struct to some placeholder value
-        matvar_t* placeholder = Mat_VarCalloc();
-        Mat_VarSetStructFieldByName(matrix_entry, "A", 0, placeholder);
+        //Avoid storing the matrix data twice.
+        Mat_VarFree(matrix_entry);
     }
 }
 
