@@ -96,7 +96,10 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
         this->type = get_nonlinear_function_type(TROTS_type);
 
     std::cerr << "Function type: " << func_type_names[static_cast<int>(this->type)] << "\n";
-    std::cerr << "Variant holds MKL_matrix? " << std::holds_alternative<MKL_sparse_matrix<double>>(*this->matrix_ref) << "\n";
+
+    matvar_t* weight_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Weight", 0);
+    check_null(weight_var, "Could not read the \"Weight\" field from the problem struct.\n");
+    this->weight = *static_cast<double*>(weight_var->data);
     //A lot of the objective functions require a temporary y vector to hold the dose. To avoid allocating that space for each
     //call to compute the objective value, we pre-allocate storage for it in this->y_vec.
     if (this->type != FunctionType::Mean) {
@@ -127,12 +130,12 @@ double TROTSEntry::calc_value(const double* x) const {
 }
 
 double TROTSEntry::calc_quadratic(const double* x) const {
-    const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
     return matrix.quad_mul(x, &this->y_vec[0]) + this->c;
 }
 
 double TROTSEntry::calc_max(const double* x) const {
-    const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
     matrix.vec_mul(x, &this->y_vec[0]);
 
     const double max_elem = *std::max_element(this->y_vec.cbegin(), this->y_vec.cend());
@@ -140,7 +143,7 @@ double TROTSEntry::calc_max(const double* x) const {
 }
 
 double TROTSEntry::calc_min(const double* x) const {
-    const auto matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
     matrix.vec_mul(x, &this->y_vec[0]);
 
     const double min_elem = *std::min_element(this->y_vec.cbegin(), this->y_vec.cend());
@@ -148,6 +151,36 @@ double TROTSEntry::calc_min(const double* x) const {
 }
 
 double TROTSEntry::calc_mean(const double* x) const {
-    const auto vector = std::get<std::vector<double>>(*(this->matrix_ref));
+    const auto& vector = std::get<std::vector<double>>(*(this->matrix_ref));
     return cblas_ddot(vector.size(), x, 1, &vector[0], 1);
+}
+
+double TROTSEntry::quadratic_penalty_min(const double* x) const {
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    matrix.vec_mul(x, &this->y_vec[0]);
+
+    double sq_diff = 0.0;
+    const size_t num_voxels = this->y_vec.size();
+    for (int i = 0; i < num_voxels; ++i) {
+        double clamped_diff = std::min(this->y_vec[i] - this->rhs, 0.0);
+        double sq = clamped_diff * clamped_diff;
+        sq_diff += sq;
+    }
+
+    return sq_diff / static_cast<double>(num_voxels);
+}
+
+double TROTSEntry::quadratic_penalty_max(const double* x) const {
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    matrix.vec_mul(x, &this->y_vec[0]);
+
+    double sq_diff = 0.0;
+    const size_t num_voxels = this->y_vec.size();
+    for (int i = 0; num_voxels; ++i) {
+        double clamped_diff = std::max(this->y_vec[i] - this->rhs, 0.0);
+        double sq = clamped_diff * clamped_diff;
+        sq_diff += sq;
+    }
+
+    return sq_diff / static_cast<double>(num_voxels);
 }

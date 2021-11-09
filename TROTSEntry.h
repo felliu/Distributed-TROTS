@@ -23,6 +23,8 @@ private:
     double calc_max(const double* x) const;
     double calc_min(const double* x) const;
     double calc_mean(const double* x) const;
+    double quadratic_penalty_min(const double* x) const;
+    double quadratic_penalty_max(const double* x) const;
     int id;
     std::string roi_name;
     std::vector<double> func_params;
