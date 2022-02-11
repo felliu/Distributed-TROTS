@@ -85,7 +85,7 @@ public:
     }
 
     //Computes A*x and stores the result in y.
-    void vec_mul(const T* x, T* y) const;
+    void vec_mul(const T* x, T* y, bool transpose = false) const;
     //Computes the value of the quadratic form x^T * A * x and returns the value.
     //The value A * x is stored in y.
     double quad_mul(const T* x, T* y) const;
@@ -209,14 +209,15 @@ void MKL_sparse_matrix<T>::init_mkl_handle() {
 }
 
 template <typename T>
-void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y) const {
+void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y, bool transpose = false) const {
     static_assert(std::is_same_v<T, double> || std::is_same_v<T, float>);
     sparse_status_t status = SPARSE_STATUS_SUCCESS;
+    sparse_operation_t trans_op = transpose ? SPARSE_OPERATION_TRANSPOSE : SPARSE_OPERATION_NON_TRANSPOSE;
 
     if constexpr (std::is_same_v<T, double>)
-        status = mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y);
+        status = mkl_sparse_d_mv(trans_op, 1.0, this->mkl_handle, desc, x, 0.0, y);
     else
-        status = mkl_sparse_s_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, this->mkl_handle, desc, x, 0.0, y);
+        status = mkl_sparse_s_mv(trans_op, 1.0, this->mkl_handle, desc, x, 0.0, y);
 
     assert(check_MKL_status(status));
 }

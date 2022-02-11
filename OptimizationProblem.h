@@ -16,9 +16,8 @@ public:
     virtual void eval_jacobian(int num_vars, int num_cons, const double* x, int nnz, int* row_inds, int* col_inds, double* vals) = 0;
     virtual void eval_ineq_jacobian(int num_vars, int num_ineq_cons, const double* x, int nnz, int* row_inds, int* col_inds, double* vals) = 0;
     virtual void eval_eq_jacobian(int num_vars, int num_eq_cons, const double* x, int nnz, int* row_inds, int* col_inds, double* vals) = 0;
-    virtual void eval_hessian(int num_vars, int num_cons, const double* x, const double* multipliers, 
+    virtual void eval_hessian(int num_vars, int num_cons, const double* x, const double* multipliers,
                               int nnz, int* row_inds, int* col_inds, double* vals) = 0;
-    
     virtual int get_num_vars() const = 0;
     virtual int get_num_cons() const = 0;
     virtual int get_nnz_hess() const = 0;

@@ -105,6 +105,7 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     if (this->type != FunctionType::Mean) {
         auto num_rows = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_rows();
         this->y_vec.resize(num_rows);
+        this->grad_tmp.resize(num_rows);
     }
 
     if (this->type == FunctionType::Quadratic) {
@@ -119,9 +120,9 @@ double TROTSEntry::calc_value(const double* x) const {
         case FunctionType::Quadratic:
             return this->calc_quadratic(x);
         case FunctionType::Max:
-            return this->calc_max(x);
+            return this->quadratic_penalty_max(x);
         case FunctionType::Min:
-            return this->calc_min(x);
+            return this->quadratic_penalty_min(x);
         case FunctionType::Mean:
             return this->calc_mean(x);
         default:
@@ -163,8 +164,7 @@ double TROTSEntry::quadratic_penalty_min(const double* x) const {
     const size_t num_voxels = this->y_vec.size();
     for (int i = 0; i < num_voxels; ++i) {
         double clamped_diff = std::min(this->y_vec[i] - this->rhs, 0.0);
-        double sq = clamped_diff * clamped_diff;
-        sq_diff += sq;
+        sq_diff += clamped_diff * clamped_diff;
     }
 
     return sq_diff / static_cast<double>(num_voxels);
@@ -178,9 +178,44 @@ double TROTSEntry::quadratic_penalty_max(const double* x) const {
     const size_t num_voxels = this->y_vec.size();
     for (int i = 0; num_voxels; ++i) {
         double clamped_diff = std::max(this->y_vec[i] - this->rhs, 0.0);
-        double sq = clamped_diff * clamped_diff;
-        sq_diff += sq;
+        sq_diff += clamped_diff * clamped_diff;
     }
 
     return sq_diff / static_cast<double>(num_voxels);
+}
+
+void TROTSEntry::calc_gradient(const double* x, double* grad) const {
+    switch (this->type) {
+        case FunctionType::Max:
+
+        case FunctionType::Min:
+    }
+}
+
+void TROTSEntry::quad_min_grad(const double* x, double* grad, bool cached_dose) const {
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    //Sometimes, this->y_vec will already contain the current dose vector, no need to recompute in this case
+    if (!cached_dose) {
+        matrix.vec_mul(x, &this->y_vec[0]);
+    }
+
+    for (int i = 0; i < this->grad_tmp.size(); ++i) {
+        grad_tmp[i] = 2 * std::min(this->y_vec[i] - this->rhs, 0.0);
+    }
+
+    matrix.vec_mul(&this->grad_tmp[0], grad, true);
+}
+
+void TROTSEntry::quad_max_grad(const double* x, double* grad, bool cached_dose) const {
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    //Sometimes, this->y_vec will already contain the current dose vector, no need to recompute in this case
+    if (!cached_dose) {
+        matrix.vec_mul(x, &this->y_vec[0]);
+    }
+
+    for (int i = 0; i < this->grad_tmp.size(); ++i) {
+        grad_tmp[i] = 2 * std::max(this->y_vec[i] - this->rhs, 0.0);
+    }
+
+    matrix.vec_mul(&this->grad_tmp[0], grad, true);
 }

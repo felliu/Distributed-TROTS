@@ -18,7 +18,7 @@
 struct TROTSMatFileData {
 public:
     TROTSMatFileData(const std::filesystem::path& file_path);
-    
+
     TROTSMatFileData(const TROTSMatFileData& other) = delete;
     TROTSMatFileData& operator=(const TROTSMatFileData& rhs) = delete;
 
@@ -33,7 +33,7 @@ private:
     void init_problem_data_structs();
 };
 
-class TROTSProblem { //: public OptimizationProblem {
+class TROTSProblem {
 public:
     TROTSProblem(TROTSMatFileData&& trots_data);
 
@@ -41,7 +41,7 @@ public:
     std::vector<TROTSEntry> objective_entries;
     std::vector<TROTSEntry> constraint_entries;
     int get_num_vars() const noexcept { return this->num_vars; }
-    
+
 private:
     void read_dose_matrices();
 
