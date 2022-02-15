@@ -187,8 +187,11 @@ double TROTSEntry::quadratic_penalty_max(const double* x) const {
 void TROTSEntry::calc_gradient(const double* x, double* grad) const {
     switch (this->type) {
         case FunctionType::Max:
-
+            quad_max_grad(x, grad, false);
+            break;
         case FunctionType::Min:
+            quad_min_grad(x, grad, false);
+            break;
     }
 }
 
