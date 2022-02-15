@@ -203,7 +203,7 @@ void TROTSEntry::quad_min_grad(const double* x, double* grad, bool cached_dose) 
         grad_tmp[i] = 2 * std::min(this->y_vec[i] - this->rhs, 0.0);
     }
 
-    matrix.vec_mul(&this->grad_tmp[0], grad, true);
+    matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
 }
 
 void TROTSEntry::quad_max_grad(const double* x, double* grad, bool cached_dose) const {
@@ -217,5 +217,5 @@ void TROTSEntry::quad_max_grad(const double* x, double* grad, bool cached_dose) 
         grad_tmp[i] = 2 * std::max(this->y_vec[i] - this->rhs, 0.0);
     }
 
-    matrix.vec_mul(&this->grad_tmp[0], grad, true);
+    matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
 }

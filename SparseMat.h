@@ -86,6 +86,8 @@ public:
 
     //Computes A*x and stores the result in y.
     void vec_mul(const T* x, T* y, bool transpose = false) const;
+    //Computes A^T * x and stores result in y.
+    void vec_mul_transpose(const T* x, T* y) const;
     //Computes the value of the quadratic form x^T * A * x and returns the value.
     //The value A * x is stored in y.
     double quad_mul(const T* x, T* y) const;
@@ -220,6 +222,11 @@ void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y, bool transpose = false) con
         status = mkl_sparse_s_mv(trans_op, 1.0, this->mkl_handle, desc, x, 0.0, y);
 
     assert(check_MKL_status(status));
+}
+
+template <typename T>
+void MKL_sparse_matrix<T>::vec_mul_transpose(const T* x, T* y) const {
+    this->vec_mul(x, y, true);
 }
 
 template <typename T>
