@@ -143,3 +143,24 @@ void TROTSProblem::read_dose_matrices() {
 }
 
 
+double TROTSProblem::calc_objective(const double* x) const {
+    double sum = 0.0;
+    for (const auto& entry : this->objective_entries) {
+        sum += entry.get_weight() * entry.calc_value(x);
+    }
+    return sum;
+}
+
+void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
+    std::memset(static_cast<void*>(y), 0, this->num_vars * sizeof(double));
+    std::vector<double> grad_tmp(this->num_vars);
+
+    for (const auto& entry : this->objective_entries) {
+        entry.calc_gradient(x, &grad_tmp[0]);
+        for (int i = 0; i < grad_tmp.size(); ++i) {
+            y[i] += grad_tmp[i];
+        }
+    }
+}
+
+

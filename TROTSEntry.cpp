@@ -108,6 +108,16 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
         this->grad_tmp.resize(num_rows);
     }
 
+    //For convenience purposes, store the number of variables as a member. We can determine the number of variables
+    //by looking at the number of columns in the dose matrix, or in the case of mean, the number of elements in the mean vector.
+    if (this->type != FunctionType::Mean) {
+        auto num_cols = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_cols();
+        this->num_vars = num_cols;
+    } else {
+        auto num_cols = std::get<std::vector<double>>(*(this->matrix_ref)).size();
+        this->num_vars = num_cols;
+    }
+
     if (this->type == FunctionType::Quadratic) {
         matvar_t* c_var = Mat_VarGetStructFieldByName(matrix_struct, "c", this->id - 1);
         assert(c_var->data_type == MAT_T_SINGLE);
@@ -156,6 +166,15 @@ double TROTSEntry::calc_mean(const double* x) const {
     return cblas_ddot(vector.size(), x, 1, &vector[0], 1);
 }
 
+double TROTSEntry::quadratic_penalty_mean(const double* x) const {
+    const auto& vector = std::get<std::vector<double>>(*(this->matrix_ref));
+    const double mean = cblas_ddot(vector.size(), x, 1, &vector[0], 1);
+    const double diff = this->minimise ?
+                            std::min(mean - this->rhs, 0.0) :
+                            std::max(mean - this->rhs, 0.0);
+    return diff * diff;
+}
+
 double TROTSEntry::quadratic_penalty_min(const double* x) const {
     const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
     matrix.vec_mul(x, &this->y_vec[0]);
@@ -193,6 +212,27 @@ void TROTSEntry::calc_gradient(const double* x, double* grad) const {
             quad_min_grad(x, grad, false);
             break;
     }
+}
+
+std::vector<int> TROTSEntry::grad_nonzero_idxs() const {
+    //Find the nonzero entries by simply supplying an input vector of all ones, and
+    //checking which values in the resulting gradient are non-zero.
+    std::vector<double> grad_tmp(this->num_vars);
+    std::vector<double> x_tmp(this->num_vars, 1.0);
+
+    this->calc_gradient(&x_tmp[0], &grad_tmp[0]);
+    std::vector<int> idxs;
+    for (int i = 0; i < this->num_vars; ++i) {
+        if (grad_tmp[i] >= 1e-9)
+            idxs.push_back(i);
+    }
+
+    return idxs;
+}
+
+void TROTSEntry::mean_grad(const double* x, double* grad) const {
+    const auto& avg_dose_matrix = std::get<std::vector<double>>(*(this->matrix_ref));
+    std::copy(avg_dose_matrix.cbegin(), avg_dose_matrix.cend(), grad);
 }
 
 void TROTSEntry::quad_min_grad(const double* x, double* grad, bool cached_dose) const {

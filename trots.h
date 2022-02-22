@@ -41,6 +41,8 @@ public:
     std::vector<TROTSEntry> objective_entries;
     std::vector<TROTSEntry> constraint_entries;
     int get_num_vars() const noexcept { return this->num_vars; }
+    double calc_objective(const double* x) const;
+    void calc_obj_gradient(const double* x, double* y) const;
 
 private:
     void read_dose_matrices();
