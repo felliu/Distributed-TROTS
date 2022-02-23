@@ -97,7 +97,7 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
         if (entry.is_constraint())
             this->constraint_entries.push_back(entry);
         else
-            this->objective_entries.push_back(entry );
+            this->objective_entries.push_back(entry);
     }
 
     matvar_t* misc_struct = Mat_VarGetStructFieldByName(this->trots_data.data_struct, "misc", 0);

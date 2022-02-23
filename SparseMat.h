@@ -40,14 +40,14 @@ namespace {
     //Takes a CSC-matrix triplet and returns a CSR-matrix triplet
     //Implementation basically same as the one used in SciPy.
     template <typename ValueType, typename IdxType>
-    std::tuple<ValueType*, IdxType*, IdxType*>
+    std::tuple<ValueType*, int*, int*>
     csc_to_csr(IdxType rows, IdxType cols,
                const ValueType* data,
                const IdxType* row_idxs,
                const IdxType* col_ptrs) {
 
         //Allocate arrays for the new CSR-matrix
-        const IdxType nnz = col_ptrs[cols];
+        const int nnz = static_cast<int>(col_ptrs[cols]);
         ValueType* data_csr = new ValueType[nnz];
         IdxType* col_idxs_csr = new IdxType[nnz];
         IdxType* row_ptrs_csr = new IdxType[rows + 1];
@@ -63,13 +63,13 @@ namespace {
         //Compute the cumulative sum to get the actual row_ptr values
         for (int row = 0; row < rows; ++row) {
             const IdxType tmp = row_ptrs_csr[row];
-            row_ptrs_csr = cumulative_sum;
+            row_ptrs_csr[row] = cumulative_sum;
             cumulative_sum += tmp;
         }
         row_ptrs_csr[rows] = nnz;
 
         for (int col = 0; col < cols; ++col) {
-            for (int i = row_ptrs[col]; i < row_ptrs[col + 1]; ++i) {
+            for (int i = col_ptrs[col]; i < col_ptrs[col + 1]; ++i) {
                 const IdxType row = row_idxs[i];
                 const IdxType dest_idx = row_ptrs_csr[row];
 
@@ -87,18 +87,13 @@ namespace {
             last = tmp;
         }
 
+        return std::make_tuple(data_csr, col_idxs_csr, row_ptrs_csr);
     }
 
     matrix_descr desc{ SPARSE_MATRIX_TYPE_GENERAL,
                        SPARSE_FILL_MODE_LOWER,
                        SPARSE_DIAG_NON_UNIT};
 }
-
-//Internally, we might store the data in CSC format, since we read them from matlab.
-enum class StorageTypeInternal {
-    CSR,
-    CSC
-};
 
 template <typename T>
 class MKL_sparse_matrix {
@@ -152,8 +147,6 @@ public:
 private:
     void init_mkl_handle();
     MKL_mat_handle mkl_handle;
-    MKL_mat_handle _csc_handle;
-    StorageTypeInternal sp_type;
     int nnz, rows, cols;
     T* data;
     int* indices; //Col indices if CSR and row indices if CSC.
@@ -166,15 +159,14 @@ MKL_sparse_matrix<T>::MKL_sparse_matrix(const MKL_sparse_matrix<T>& rhs) {
     this->nnz = rhs.nnz;
     this->rows = rhs.rows;
     this->cols = rhs.cols;
-    this->sp_type = rhs.sp_type;
 
     this->data = new T[this->nnz];
     this->indices = new int[this->nnz];
-    this->indptrs = new int[this->cols + 1];
+    this->indptrs = new int[this->rows + 1];
 
     std::memcpy(this->data, rhs.data, sizeof(T) * this->nnz);
     std::memcpy(this->indices, rhs.indices, sizeof(int) * this->nnz);
-    std::memcpy(this->indptrs, rhs.indptrs, sizeof(int) * (this->cols + 1));
+    std::memcpy(this->indptrs, rhs.indptrs, sizeof(int) * (this->rows + 1));
 
     this->init_mkl_handle();
 }
@@ -190,7 +182,6 @@ MKL_sparse_matrix<T>::MKL_sparse_matrix(MKL_sparse_matrix&& other) {
     this->nnz = other.nnz;
     this->rows = other.rows;
     this->cols = other.cols;
-    this->sp_type = other.sp_type;
     this->mkl_handle = other.mkl_handle;
 
     this->data = other.data;
@@ -209,7 +200,6 @@ MKL_sparse_matrix<T>::~MKL_sparse_matrix() {
     delete[] this->indices;
     delete[] this->indptrs;
     mkl_sparse_destroy(this->mkl_handle);
-    mkl_sparse_destroy(this->_csc_handle);
 }
 
 template <typename T>
@@ -218,18 +208,19 @@ MKL_sparse_matrix<T>
 MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs) {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
     MKL_sparse_matrix<T> mat;
+
+    std::vector<int> row_idxs_int;
+    std::vector<int> col_ptrs_int;
+    row_idxs_int.reserve(nnz);
+    col_ptrs_int.reserve(cols + 1);
+    //Assuming here that the narrowing cast to int32_t from things like uint32_t will fit.
+    std::transform(row_idxs, row_idxs + nnz, std::back_inserter(row_idxs_int), [](auto x) { return static_cast<int>(x); });
+    std::transform(col_ptrs, col_ptrs + cols + 1, std::back_inserter(col_ptrs_int), [](auto x) { return static_cast<int>(x); });
+
     mat.rows = rows;
     mat.cols = cols;
     mat.nnz = nnz;
-    mat.sp_type = StorageTypeInternal::CSC;
-    mat.data = new T[nnz];
-    mat.indices = new int[nnz];
-    mat.indptrs = new int[cols + 1];
-
-    std::memcpy(mat.data, vals, sizeof(T) * nnz);
-    //Assuming here that the narrowing cast to int32_t from things like uint32_t will fit.
-    std::transform(row_idxs, row_idxs + nnz, mat.indices, [](auto x) { return static_cast<int>(x); });
-    std::transform(col_ptrs, col_ptrs + cols + 1, mat.indptrs, [](auto x) { return static_cast<int>(x); });
+    std::tie(mat.data, mat.indices, mat.indptrs) = csc_to_csr(rows, cols, vals, &row_idxs_int[0], &col_ptrs_int[0]);
 
     mat.init_mkl_handle();
     return mat;
@@ -239,36 +230,29 @@ template <typename T>
 void MKL_sparse_matrix<T>::init_mkl_handle() {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
     sparse_status_t status = SPARSE_STATUS_SUCCESS;
-    if (sp_type == StorageTypeInternal::CSC) {
-        if constexpr (std::is_same_v<T, double>) {
-            status = mkl_sparse_d_create_csc(&this->_csc_handle,
-                                             SPARSE_INDEX_BASE_ZERO,
-                                             this->rows, this->cols,
-                                             this->indptrs, this->indptrs + 1,
-                                             this->indices, this->data);
-            assert(check_MKL_status(status));
-        }
-        else if constexpr (std::is_same_v<T, float>) {
-            status = mkl_sparse_s_create_csc(&this->_csc_handle,
-                                             SPARSE_INDEX_BASE_ZERO,
-                                             this->rows, this->cols,
-                                             this->indptrs, this->indptrs + 1,
-                                             this->indices, this->data);
-            assert(check_MKL_status(status));
-        }
-
-        this->mkl_handle = nullptr;
-        status = mkl_sparse_convert_csr(this->_csc_handle, SPARSE_OPERATION_NON_TRANSPOSE, &this->mkl_handle);
+    if constexpr (std::is_same_v<T, double>) {
+        status = mkl_sparse_d_create_csr(&this->mkl_handle,
+                                            SPARSE_INDEX_BASE_ZERO,
+                                            this->rows, this->cols,
+                                            this->indptrs, this->indptrs + 1,
+                                            this->indices, this->data);
         assert(check_MKL_status(status));
-    } else {
-        throw "Internal storage type CSR not implemented yet!\n";
     }
+    else if constexpr (std::is_same_v<T, float>) {
+        status = mkl_sparse_s_create_csr(&this->mkl_handle,
+                                            SPARSE_INDEX_BASE_ZERO,
+                                            this->rows, this->cols,
+                                            this->indptrs, this->indptrs + 1,
+                                            this->indices, this->data);
+        assert(check_MKL_status(status));
+    }
+
+    assert(check_MKL_status(status));
 }
 
 template <typename T>
 void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y, bool transpose) const {
     static_assert(std::is_same_v<T, double> || std::is_same_v<T, float>);
-    this->check_consistency();
     sparse_status_t status = SPARSE_STATUS_SUCCESS;
     const sparse_operation_t trans_op = transpose ? SPARSE_OPERATION_TRANSPOSE : SPARSE_OPERATION_NON_TRANSPOSE;
 
@@ -319,13 +303,6 @@ void MKL_sparse_matrix<T>::check_consistency() const {
     } else {
         float* data;
         status = mkl_sparse_s_export_csr(this->mkl_handle, &idx_base, &rows_mkl, &cols_mkl, &rows_start, &rows_end, &col_idxs, &data);
-    }
-
-    int previous_val = 0;
-    for (int i = 0; i < rows_mkl; ++i) {
-        std::cerr << "previous: " << previous_val << ", current: " << rows_end[i] << "\n";
-        //assert(rows_start[i] >= previous_val);
-        previous_val = rows_end[i];
     }
 
     const int nnz_mkl = rows_end[this->rows-1];

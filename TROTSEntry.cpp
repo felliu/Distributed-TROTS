@@ -231,7 +231,7 @@ double TROTSEntry::quadratic_penalty_max(const double* x) const {
 
     double sq_diff = 0.0;
     const size_t num_voxels = this->y_vec.size();
-    for (int i = 0; num_voxels; ++i) {
+    for (int i = 0; i < num_voxels; ++i) {
         double clamped_diff = std::max(this->y_vec[i] - this->rhs, 0.0);
         sq_diff += clamped_diff * clamped_diff;
     }
