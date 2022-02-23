@@ -18,27 +18,27 @@ void test_value_calc(const std::vector<TROTSEntry>& entries, const std::vector<d
     for (const auto& entry : entries) {
         std::cerr << "Checking entry number: " << idx << "\n";
         std::cerr << "Name: " << entry.get_roi_name() << "\n";
-        if (entry.function_type() == FunctionType::Quadratic) {
-            double val = entry.calc_value(x.data());
-            std::cerr << "Type: Quadratic\tVal: " << val << "\n";
+        double val = entry.calc_value(x.data());
+        switch (entry.function_type()) {
+            case FunctionType::Quadratic:
+                std::cerr << "Type: Quadratic\tVal: " << val << "\n";
+                break;
+            case FunctionType::Max:
+                std::cerr << "Type: Max\tVal: " << val << "\n";
+                break;
+            case FunctionType::Min:
+                std::cerr << "Type: Min\tVal: " << val << "\n";
+                break;
+            case FunctionType::Mean:
+                std::cerr << "Type: Mean\tVal: " << val << "\n";
+                break;
+            case FunctionType::gEUD:
+                std::cerr << "Type: gEUD\tVal: " << val << "\n";
+                break;
+            case FunctionType::LTCP:
+                std::cerr << "Type: LTCP\tVal: " << val << "\n";
+                break;
         }
-
-        else if (entry.function_type() == FunctionType::Max) {
-            std::cerr << "x sz: " << x.size() << "\n";
-            double val = entry.calc_value(x.data());
-            std::cerr << "Type: Max\tVal: " << val << "\n";
-        }
-
-        else if (entry.function_type() == FunctionType::Min) {
-            double val = entry.calc_value(x.data());
-            std::cerr << "Type: Min\tVal: " << val << "\n";
-        }
-
-        else if (entry.function_type() == FunctionType::Mean) {
-            double val = entry.calc_value(x.data());
-            std::cerr << "Type: Mean\tVal: " << val << "\n";
-        }
-
 
         ++idx;
     }
@@ -57,8 +57,7 @@ int main(int argc, char* argv[])
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
 
-    std::cerr << "Calculating quadratic objectives...\n";
-    std::vector<double> x(trots_problem.get_num_vars(), 1.0); // = init_rand_vector(trots_problem.get_num_vars());
+    std::vector<double> x = init_rand_vector(trots_problem.get_num_vars());
     test_value_calc(trots_problem.objective_entries, x);
     test_value_calc(trots_problem.constraint_entries, x);
     return 0;

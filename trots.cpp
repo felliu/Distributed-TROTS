@@ -62,7 +62,6 @@ TROTSMatFileData::TROTSMatFileData(TROTSMatFileData&& other) {
 }
 
 TROTSMatFileData::~TROTSMatFileData() {
-    std::cerr << "Destroying MatFileData...\n";
     Mat_VarFree(this->data_struct);
     Mat_VarFree(this->problem_struct);
     Mat_Close(this->file_fp);
@@ -104,7 +103,6 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
     matvar_t* misc_struct = Mat_VarGetStructFieldByName(this->trots_data.data_struct, "misc", 0);
     matvar_t* size_var = Mat_VarGetStructFieldByName(misc_struct, "size", 0);
     this->num_vars = cast_from_double<int>(size_var);
-    std::cerr << "Num vars: " << this->num_vars << "\n";
 }
 
 void TROTSProblem::read_dose_matrices() {
@@ -125,13 +123,11 @@ void TROTSProblem::read_dose_matrices() {
         //For the mean functions, the "A"-matrix is reduced to a dense vector.
         //Check if we have a sparse matrix or dense vector
         if (A->class_type == MAT_C_SPARSE) {
-            std::cerr << "Sparse mat found!\n";
             new_variant.emplace<MKL_sparse_matrix<double>>(
                 read_and_cvt_sparse_mat(matrix_entry)
             );
         }
         else {
-            std::cerr << "Dense vector found!\n";
             new_variant.emplace<std::vector<double>>(
                 get_mean_vector(matrix_entry)
             );

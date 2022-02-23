@@ -27,10 +27,15 @@ private:
     double calc_max(const double* x) const;
     double calc_min(const double* x) const;
     double calc_mean(const double* x) const;
-    void mean_grad(const double* x, double* grad) const;
+    double calc_LTCP(const double* x) const;
+    double calc_gEUD(const double* x) const;
+
     double quadratic_penalty_min(const double* x) const;
     double quadratic_penalty_max(const double* x) const;
     double quadratic_penalty_mean(const double* x) const;
+    void mean_grad(const double* x, double* grad) const;
+    void LTCP_grad(const double* x, double* grad, bool cached_dose) const;
+    void gEUD_grad(const double* x, double* grad, bool cached_dose) const;
     void quad_min_grad(const double* x, double* grad, bool cached_dose) const;
     void quad_max_grad(const double* x, double* grad, bool cached_dose) const;
 
