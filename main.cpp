@@ -44,6 +44,23 @@ void test_value_calc(const std::vector<TROTSEntry>& entries, const std::vector<d
     }
 }
 
+void test_gradient_calc(const std::vector<TROTSEntry>& entries, const std::vector<double>& x) {
+    int idx = 0;
+    std::vector<double> grad(x.size());
+    for (const auto& entry : entries) {
+        std::cerr << "Computing gradient for entry number: " << idx << "\n";
+        std::cerr << "Name: " << entry.get_roi_name() << "\n";
+        entry.calc_gradient(&x[0], &grad[0]);
+        idx++;
+        int inner = 0;
+        for (double val : grad) {
+            std::cerr << "Val[" << inner << "]: " << val << "\n";
+            inner++;
+        }
+    }
+
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 2)  {
@@ -60,6 +77,8 @@ int main(int argc, char* argv[])
     std::vector<double> x = init_rand_vector(trots_problem.get_num_vars());
     test_value_calc(trots_problem.objective_entries, x);
     test_value_calc(trots_problem.constraint_entries, x);
+    test_gradient_calc(trots_problem.objective_entries, x);
+    test_gradient_calc(trots_problem.constraint_entries, x);
     return 0;
     /*
     std::cerr << "Reading matfile...";
