@@ -16,27 +16,27 @@ std::vector<double> init_rand_vector(int size) {
 void test_value_calc(const std::vector<TROTSEntry>& entries, const std::vector<double>& x) {
     int idx = 0;
     for (const auto& entry : entries) {
-        std::cerr << "Checking entry number: " << idx << "\n";
-        std::cerr << "Name: " << entry.get_roi_name() << "\n";
+        std::cout << "Checking entry number: " << idx << "\n";
+        std::cout << "Name: " << entry.get_roi_name() << "\n";
         double val = entry.calc_value(x.data());
         switch (entry.function_type()) {
             case FunctionType::Quadratic:
-                std::cerr << "Type: Quadratic\tVal: " << val << "\n";
+                std::cout << "Type: Quadratic\tVal: " << val << "\n";
                 break;
             case FunctionType::Max:
-                std::cerr << "Type: Max\tVal: " << val << "\n";
+                std::cout << "Type: Max\tVal: " << val << "\n";
                 break;
             case FunctionType::Min:
-                std::cerr << "Type: Min\tVal: " << val << "\n";
+                std::cout << "Type: Min\tVal: " << val << "\n";
                 break;
             case FunctionType::Mean:
-                std::cerr << "Type: Mean\tVal: " << val << "\n";
+                std::cout << "Type: Mean\tVal: " << val << "\n";
                 break;
             case FunctionType::gEUD:
-                std::cerr << "Type: gEUD\tVal: " << val << "\n";
+                std::cout << "Type: gEUD\tVal: " << val << "\n";
                 break;
             case FunctionType::LTCP:
-                std::cerr << "Type: LTCP\tVal: " << val << "\n";
+                std::cout << "Type: LTCP\tVal: " << val << "\n";
                 break;
         }
 
@@ -48,13 +48,13 @@ void test_gradient_calc(const std::vector<TROTSEntry>& entries, const std::vecto
     int idx = 0;
     std::vector<double> grad(x.size());
     for (const auto& entry : entries) {
-        std::cerr << "Computing gradient for entry number: " << idx << "\n";
-        std::cerr << "Name: " << entry.get_roi_name() << "\n";
+        std::cout << "Computing gradient for entry number: " << idx << "\n";
+        std::cout << "Name: " << entry.get_roi_name() << "\n";
         entry.calc_gradient(&x[0], &grad[0]);
         idx++;
         int inner = 0;
         for (double val : grad) {
-            std::cerr << "Val[" << inner << "]: " << val << "\n";
+            std::cout << "Val[" << inner << "]: " << val << "\n";
             inner++;
         }
     }

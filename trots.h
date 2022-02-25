@@ -41,13 +41,19 @@ public:
     std::vector<TROTSEntry> objective_entries;
     std::vector<TROTSEntry> constraint_entries;
     int get_num_vars() const noexcept { return this->num_vars; }
+    int get_nnz_jac_cons() const noexcept { return this->nnz_jac_cons; }
+    int get_num_constraints() const noexcept {
+        return this->constraint_entries.size();
+    }
     double calc_objective(const double* x) const;
     void calc_obj_gradient(const double* x, double* y) const;
+    void calc_constraints(const double* x, double* cons_vals) const;
 
 private:
     void read_dose_matrices();
 
     int num_vars;
+    int nnz_jac_cons;
     TROTSMatFileData trots_data;
     //List of matrix entries, indexed by dataID.
     //If the FunctionType is mean, the value is computed using a dot product with a dense vector,

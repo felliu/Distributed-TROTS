@@ -88,16 +88,20 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
 
     int stride[] = {0, 0};
     int edge[] = {1, 1};
+    this->nnz_jac_cons = 0;
     for (int i = 0; i < num_entries; ++i) {
         std::cerr << "Reading trots entry " << i << " of " << num_entries << "...\n";
         int start[] =  {0, i};
         matvar_t* struct_elem = Mat_VarGetStructs(problem_struct, start, stride, edge, 0);
         const TROTSEntry entry{struct_elem, this->trots_data.matrix_struct, this->matrices};
         std::cerr << "TROTSEntry read!\n\n";
-        if (entry.is_constraint())
+        if (entry.is_constraint()) {
             this->constraint_entries.push_back(entry);
-        else
+            auto vec = entry.grad_nonzero_idxs();
+            this->nnz_jac_cons += vec.size();
+        } else {
             this->objective_entries.push_back(entry);
+        }
     }
 
     matvar_t* misc_struct = Mat_VarGetStructFieldByName(this->trots_data.data_struct, "misc", 0);
@@ -156,6 +160,12 @@ void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
         for (int i = 0; i < grad_tmp.size(); ++i) {
             y[i] += grad_tmp[i];
         }
+    }
+}
+
+void TROTSProblem::calc_constraints(const double* x, double* cons_vals) const {
+    for (int i = 0; i < this->constraint_entries.size(); ++i) {
+        cons_vals[i] = this->constraint_entries[i].calc_value(x);
     }
 }
 
