@@ -18,10 +18,12 @@ public:
     double calc_value(const double* x) const;
     double get_weight() const { return this->weight; }
     void calc_gradient(const double* x, double* grad) const;
+    std::vector<double> calc_sparse_grad(const double* x) const;
     //Returns the indexes of the non-zero elements in the gradient of the entry.
-    std::vector<int> grad_nonzero_idxs() const;
     FunctionType function_type() const noexcept { return this->type; }
     std::string get_roi_name() const { return this->roi_name; }
+
+    std::vector<int> get_grad_nonzero_idxs() const { return this->grad_nonzero_idxs; }
 private:
     double calc_quadratic(const double* x) const;
     double calc_max(const double* x) const;
@@ -39,10 +41,14 @@ private:
     void quad_min_grad(const double* x, double* grad, bool cached_dose) const;
     void quad_max_grad(const double* x, double* grad, bool cached_dose) const;
 
+    std::vector<int> calc_grad_nonzero_idxs() const;
+
     int num_vars;
     int id;
     std::string roi_name;
     std::vector<double> func_params;
+
+    std::vector<int> grad_nonzero_idxs;
 
     bool minimise;
     bool is_cons;

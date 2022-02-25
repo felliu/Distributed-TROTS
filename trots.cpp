@@ -97,7 +97,7 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
         std::cerr << "TROTSEntry read!\n\n";
         if (entry.is_constraint()) {
             this->constraint_entries.push_back(entry);
-            auto vec = entry.grad_nonzero_idxs();
+            auto vec = entry.get_grad_nonzero_idxs();
             this->nnz_jac_cons += vec.size();
         } else {
             this->objective_entries.push_back(entry);
@@ -169,4 +169,16 @@ void TROTSProblem::calc_constraints(const double* x, double* cons_vals) const {
     }
 }
 
-
+void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals) const {
+    int idx = 0;
+    for (const auto& constraint_entry : constraint_entries) {
+        std::vector<double> grad_vals = constraint_entry.calc_sparse_grad(x);
+        double sum = 0.0;
+        for (double v : grad_vals) {
+            jacobian_vals[idx] = v;
+            sum += v;
+            ++idx;
+        }
+        std::cerr << "Sum: " << sum << "\n";
+    }
+}

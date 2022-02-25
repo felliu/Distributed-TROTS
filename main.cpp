@@ -1,5 +1,7 @@
 #include "trots.h"
 
+#include "trots_ipopt.h"
+
 #include <filesystem>
 #include <iostream>
 #include <random>
@@ -63,6 +65,8 @@ void test_gradient_calc(const std::vector<TROTSEntry>& entries, const std::vecto
 
 int main(int argc, char* argv[])
 {
+    ipopt_main_func(argc, argv);
+    return 0;
     if (argc != 2)  {
         std::cerr << "Incorrect number of arguments\n";
         std::cerr << "Usage: ./program <mat_file_path>\n";

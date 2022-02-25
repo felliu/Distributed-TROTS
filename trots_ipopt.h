@@ -8,6 +8,7 @@
 #include "trots.h"
 
 class TROTS_ipopt : public Ipopt::TNLP {
+public:
     TROTS_ipopt(TROTSProblem&& prob);
 
     bool get_nlp_info(
@@ -23,9 +24,14 @@ class TROTS_ipopt : public Ipopt::TNLP {
     bool eval_g(int n, const double* x, bool new_x, int m, double* g) override;
     bool eval_jac_g(int n, const double* x, bool new_x,
                     int m, int nnz_jac, int* irow, int* icol, double* vals) override;
+    void finalize_solution(Ipopt::SolverReturn status, int n,
+                           const double* x, const double* z_l, const double* z_u,
+                           int m, const double* g, const double* lambda, double obj,
+                           const Ipopt::IpoptData* ip_data, Ipopt::IpoptCalculatedQuantities* ip_cq) override;
 private:
     std::unique_ptr<TROTSProblem> problem;
 };
 
+int ipopt_main_func(int argc, char* argv[]);
 
 #endif

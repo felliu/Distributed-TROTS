@@ -8,11 +8,18 @@ find_package(MKL CONFIG REQUIRED)
 message(STATUS "${MKL_IMPORTED_TARGETS}") #Provides available list of targets based on input
 add_subdirectory(external/matio)
 
+find_library(IPOPT
+    ipopt
+    HINTS ENV LD_LIBRARY_PATH
+    REQUIRED)
+
 add_executable(trots_test
     trots.cpp
     trots.h
     TROTSEntry.cpp
     TROTSEntry.h
+    trots_ipopt.h
+    trots_ipopt.cpp
     SparseMat.h
     OptimizationProblem.h
     util.h
@@ -26,7 +33,7 @@ set_target_properties(trots_test
 target_compile_options(trots_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
 target_compile_definitions(trots_test PUBLIC MKL_LP64)
 target_include_directories(trots_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(trots_test PUBLIC matio::matio $<LINK_ONLY:MKL::MKL>)
+target_link_libraries(trots_test PUBLIC matio::matio $<LINK_ONLY:MKL::MKL> ${IPOPT})
 
 
 

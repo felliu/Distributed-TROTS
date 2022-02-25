@@ -121,6 +121,8 @@ public:
         return this->nnz;
     }
 
+    int* get_col_inds() const noexcept { return this->indices; }
+
     friend void swap(MKL_sparse_matrix& m1, MKL_sparse_matrix& m2) {
         std::swap(m1.data, m2.data);
         std::swap(m1.indices, m2.indices);
@@ -221,6 +223,16 @@ MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, c
     mat.cols = cols;
     mat.nnz = nnz;
     std::tie(mat.data, mat.indices, mat.indptrs) = csc_to_csr(rows, cols, vals, &row_idxs_int[0], &col_ptrs_int[0]);
+
+    for (int i = 0; i < nnz; ++i) {
+        assert(mat.indices[i] < mat.cols);
+    }
+
+    int last = 0;
+    for (int i = 0; i < rows + 1; ++i) {
+        assert(mat.indptrs[i] >= last);
+        last = mat.indptrs[i];
+    }
 
     mat.init_mkl_handle();
     return mat;

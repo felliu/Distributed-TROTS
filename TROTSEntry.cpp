@@ -1,5 +1,8 @@
+#include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <numeric>
+#include <set>
 #include <vector>
 
 #include <matio.h>
@@ -127,6 +130,22 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
         assert(c_var->data_type == MAT_T_SINGLE);
         this->c = static_cast<double>(*static_cast<float*>(c_var->data));
     }
+
+    this->grad_nonzero_idxs = this->calc_grad_nonzero_idxs();
+}
+
+std::vector<double> TROTSEntry::calc_sparse_grad(const double* x) const {
+    std::vector<double> dense_grad(this->num_vars);
+    this->calc_gradient(x, &dense_grad[0]);
+    double sum = std::accumulate(dense_grad.cbegin(), dense_grad.cend(), 0.0);
+    std::cerr << "Dense sum: " << sum << "\n";
+    std::vector<double> sparse_grad;
+    sparse_grad.reserve(this->grad_nonzero_idxs.size());
+    for (int idx : this->grad_nonzero_idxs) {
+        sparse_grad.push_back(dense_grad[idx]);
+    }
+
+    return sparse_grad;
 }
 
 double TROTSEntry::calc_value(const double* x) const {
@@ -178,7 +197,6 @@ double TROTSEntry::calc_LTCP(const double* x) const {
     const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
     matrix.vec_mul(x, &this->y_vec[0]);
 
-    std::cerr << this->func_params[0] << ", " << this->func_params[1] << "\n";
     const double prescribed_dose = this->func_params[0];
     const double alpha = this->func_params[1];
     double sum = 0.0;
@@ -261,20 +279,31 @@ void TROTSEntry::calc_gradient(const double* x, double* grad) const {
     }
 }
 
-std::vector<int> TROTSEntry::grad_nonzero_idxs() const {
-    //Find the nonzero entries by simply supplying an input vector of all ones, and
-    //checking which values in the resulting gradient are non-zero.
-    std::vector<double> grad_tmp(this->num_vars);
-    std::vector<double> x_tmp(this->num_vars, 1.0);
+std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
+    std::vector<int> non_zeros;
+    if (this->function_type() != FunctionType::Mean) {
+        const auto& dose_mat = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+        int cols = dose_mat.get_cols();
+        int nnz = dose_mat.get_nnz();
+        int* col_inds = dose_mat.get_col_inds();
+        std::set<int> non_zero_cols;
+        for (int i = 0; i < nnz; ++i) {
+            non_zero_cols.insert(col_inds[i]);
+        }
+        //Convert to vector before returning
+        std::copy(non_zero_cols.cbegin(), non_zero_cols.cend(), std::back_inserter(non_zeros));
 
-    this->calc_gradient(&x_tmp[0], &grad_tmp[0]);
-    std::vector<int> idxs;
-    for (int i = 0; i < this->num_vars; ++i) {
-        if (grad_tmp[i] >= 1e-9)
-            idxs.push_back(i);
+    } else {
+        //The gradient is just the "average vector" so find the nonzeros there
+        const auto& avg_dose_matrix = std::get<std::vector<double>>(*(this->matrix_ref));
+        for (int i = 0; i < avg_dose_matrix.size(); ++i) {
+            double entry = avg_dose_matrix[i];
+            if (entry >= 1e-9) {
+                non_zeros.push_back(i);
+            }
+        }
     }
-
-    return idxs;
+    return non_zeros;
 }
 
 void TROTSEntry::mean_grad(const double* x, double* grad) const {
