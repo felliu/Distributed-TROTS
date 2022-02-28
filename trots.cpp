@@ -179,6 +179,5 @@ void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals) co
             sum += v;
             ++idx;
         }
-        std::cerr << "Sum: " << sum << "\n";
     }
 }

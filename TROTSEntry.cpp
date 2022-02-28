@@ -109,10 +109,9 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
         const auto num_rows = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_rows();
         const auto num_cols = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_cols();
         this->y_vec.resize(num_rows);
-        this->grad_tmp.resize(num_cols);
+        this->grad_tmp.resize(num_rows);
     } else {
         const auto num_cols = std::get<std::vector<double>>(*(this->matrix_ref)).size();
-        this->grad_tmp.resize(num_cols);
     }
 
     //For convenience purposes, store the number of variables as a member. We can determine the number of variables
@@ -138,7 +137,6 @@ std::vector<double> TROTSEntry::calc_sparse_grad(const double* x) const {
     std::vector<double> dense_grad(this->num_vars);
     this->calc_gradient(x, &dense_grad[0]);
     double sum = std::accumulate(dense_grad.cbegin(), dense_grad.cend(), 0.0);
-    std::cerr << "Dense sum: " << sum << "\n";
     std::vector<double> sparse_grad;
     sparse_grad.reserve(this->grad_nonzero_idxs.size());
     for (int idx : this->grad_nonzero_idxs) {
@@ -163,7 +161,8 @@ double TROTSEntry::calc_value(const double* x) const {
         case FunctionType::LTCP:
             return this->calc_LTCP(x);
         default:
-            throw "Not implemented yet!\n";
+            //throw "Not implemented yet!\n";
+            return 0.0;
     }
 }
 
@@ -217,7 +216,8 @@ double TROTSEntry::calc_gEUD(const double* x) const {
     for (int i = 0; i < num_voxels; ++i) {
         sum += std::pow(this->y_vec[i], a);
     }
-    return std::pow(sum / static_cast<double>(num_voxels), 1/a);
+    const double val = std::pow(sum / static_cast<double>(num_voxels), 1/a);
+    return val;
 }
 
 double TROTSEntry::quadratic_penalty_mean(const double* x) const {
@@ -259,6 +259,9 @@ double TROTSEntry::quadratic_penalty_max(const double* x) const {
 
 void TROTSEntry::calc_gradient(const double* x, double* grad) const {
     switch (this->type) {
+        case FunctionType::Quadratic:
+            quad_grad(x, grad);
+            break;
         case FunctionType::Max:
             quad_max_grad(x, grad, false);
             break;
@@ -275,6 +278,7 @@ void TROTSEntry::calc_gradient(const double* x, double* grad) const {
             LTCP_grad(x, grad, false);
             break;
         default:
+            //std::fill(grad, grad + this->num_vars, 0.0);
             break;
     }
 }
@@ -321,7 +325,7 @@ void TROTSEntry::LTCP_grad(const double* x, double* grad, bool cached_dose) cons
     const double prescribed_dose = this->func_params[0];
     const double alpha = this->func_params[1];
     for (int i = 0; i < this->grad_tmp.size(); ++i) {
-        this->grad_tmp[i] = -alpha / num_voxels * std::exp(this->y_vec[i] - prescribed_dose);
+        this->grad_tmp[i] = -alpha / num_voxels * std::exp(-alpha * (this->y_vec[i] - prescribed_dose));
     }
 
     matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
@@ -341,7 +345,7 @@ void TROTSEntry::gEUD_grad(const double* x, double* grad, bool cached_dose) cons
         common_factor += std::pow(this->y_vec[i], a);
     }
     common_factor = std::pow(common_factor, (1 / a) - 1);
-    common_factor *= std::pow(num_voxels, a);
+    common_factor *= std::pow(num_voxels, -1/a);
 
     for (int i = 0; i < this->grad_tmp.size(); ++i) {
         this->grad_tmp[i] = std::pow(this->y_vec[i], a - 1) * common_factor;
@@ -376,4 +380,9 @@ void TROTSEntry::quad_max_grad(const double* x, double* grad, bool cached_dose) 
     }
 
     matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
+}
+
+void TROTSEntry::quad_grad(const double* x, double* grad) const {
+    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
+    matrix.vec_mul(x, grad);
 }

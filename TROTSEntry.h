@@ -40,6 +40,7 @@ private:
     void gEUD_grad(const double* x, double* grad, bool cached_dose) const;
     void quad_min_grad(const double* x, double* grad, bool cached_dose) const;
     void quad_max_grad(const double* x, double* grad, bool cached_dose) const;
+    void quad_grad(const double* x, double* grad) const;
 
     std::vector<int> calc_grad_nonzero_idxs() const;
 

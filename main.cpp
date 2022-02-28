@@ -54,19 +54,14 @@ void test_gradient_calc(const std::vector<TROTSEntry>& entries, const std::vecto
         std::cout << "Name: " << entry.get_roi_name() << "\n";
         entry.calc_gradient(&x[0], &grad[0]);
         idx++;
-        int inner = 0;
-        for (double val : grad) {
-            std::cout << "Val[" << inner << "]: " << val << "\n";
-            inner++;
-        }
     }
 
 }
 
 int main(int argc, char* argv[])
 {
-    ipopt_main_func(argc, argv);
-    return 0;
+    /*ipopt_main_func(argc, argv);
+    return 0;*/
     if (argc != 2)  {
         std::cerr << "Incorrect number of arguments\n";
         std::cerr << "Usage: ./program <mat_file_path>\n";

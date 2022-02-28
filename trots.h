@@ -50,6 +50,7 @@ public:
     void calc_constraints(const double* x, double* cons_vals) const;
     void calc_jacobian_vals(const double* x, double* jacobian_vals) const;
 
+
 private:
     void read_dose_matrices();
 

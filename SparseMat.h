@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstring> //for std::memcpy
 #include <iostream>
+#include <numeric>
 #include <utility>
 #include <tuple>
 #include <mkl.h>
@@ -224,16 +225,6 @@ MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, c
     mat.nnz = nnz;
     std::tie(mat.data, mat.indices, mat.indptrs) = csc_to_csr(rows, cols, vals, &row_idxs_int[0], &col_ptrs_int[0]);
 
-    for (int i = 0; i < nnz; ++i) {
-        assert(mat.indices[i] < mat.cols);
-    }
-
-    int last = 0;
-    for (int i = 0; i < rows + 1; ++i) {
-        assert(mat.indptrs[i] >= last);
-        last = mat.indptrs[i];
-    }
-
     mat.init_mkl_handle();
     return mat;
 }
@@ -244,18 +235,18 @@ void MKL_sparse_matrix<T>::init_mkl_handle() {
     sparse_status_t status = SPARSE_STATUS_SUCCESS;
     if constexpr (std::is_same_v<T, double>) {
         status = mkl_sparse_d_create_csr(&this->mkl_handle,
-                                            SPARSE_INDEX_BASE_ZERO,
-                                            this->rows, this->cols,
-                                            this->indptrs, this->indptrs + 1,
-                                            this->indices, this->data);
+                                         SPARSE_INDEX_BASE_ZERO,
+                                         this->rows, this->cols,
+                                         this->indptrs, this->indptrs + 1,
+                                         this->indices, this->data);
         assert(check_MKL_status(status));
     }
     else if constexpr (std::is_same_v<T, float>) {
         status = mkl_sparse_s_create_csr(&this->mkl_handle,
-                                            SPARSE_INDEX_BASE_ZERO,
-                                            this->rows, this->cols,
-                                            this->indptrs, this->indptrs + 1,
-                                            this->indices, this->data);
+                                         SPARSE_INDEX_BASE_ZERO,
+                                         this->rows, this->cols,
+                                         this->indptrs, this->indptrs + 1,
+                                         this->indices, this->data);
         assert(check_MKL_status(status));
     }
 
