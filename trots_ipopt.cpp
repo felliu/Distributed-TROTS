@@ -129,7 +129,7 @@ int ipopt_main_func(int argc, char* argv[]) {
     Ipopt::SmartPtr<Ipopt::TNLP> trots_nlp = new TROTS_ipopt(std::move(trots_problem));
     Ipopt::SmartPtr<Ipopt::IpoptApplication> app = IpoptApplicationFactory();
     app->Options()->SetStringValue("hessian_approximation", "limited-memory");
-    //app->Options()->SetStringValue("derivative_test", "first-order");
+    app->Options()->SetStringValue("derivative_test", "first-order");
 
     Ipopt::ApplicationReturnStatus status;
     status = app->Initialize();
