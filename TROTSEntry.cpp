@@ -172,7 +172,7 @@ double TROTSEntry::calc_value(const double* x) const {
 
 double TROTSEntry::calc_quadratic(const double* x) const {
     const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    return matrix.quad_mul(x, &this->y_vec[0]) + this->c;
+    return 0.5 * matrix.quad_mul(x, &this->y_vec[0]) + this->c;
 }
 
 double TROTSEntry::calc_max(const double* x) const {

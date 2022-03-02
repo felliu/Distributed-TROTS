@@ -89,8 +89,8 @@ void calc_jacobian_sparsity(const TROTSProblem& problem) {
 
 int main(int argc, char* argv[])
 {
-    /*ipopt_main_func(argc, argv);
-    return 0;*/
+    ipopt_main_func(argc, argv);
+    return 0;
     if (argc != 2)  {
         std::cerr << "Incorrect number of arguments\n";
         std::cerr << "Usage: ./program <mat_file_path>\n";
