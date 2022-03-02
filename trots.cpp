@@ -96,8 +96,10 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
         const TROTSEntry entry{struct_elem, this->trots_data.matrix_struct, this->matrices};
         std::cerr << "TROTSEntry read!\n\n";
 
-        if (!entry.is_active())
+        if (!entry.is_active()) {
+            std::cout << "Entry: " << entry.get_roi_name() << " skipped\n";
             continue;
+        }
 
         if (entry.is_constraint()) {
             this->constraint_entries.push_back(entry);
@@ -162,7 +164,7 @@ void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
     for (const auto& entry : this->objective_entries) {
         entry.calc_gradient(x, &grad_tmp[0]);
         for (int i = 0; i < grad_tmp.size(); ++i) {
-            y[i] += grad_tmp[i];
+            y[i] += entry.get_weight() * grad_tmp[i];
         }
     }
 }

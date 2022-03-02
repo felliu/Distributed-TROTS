@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     std::filesystem::path path{path_str};
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
-    calc_jacobian_sparsity(trots_problem);
+    //calc_jacobian_sparsity(trots_problem);
     return 0;
 
     std::vector<double> x = init_rand_vector(trots_problem.get_num_vars());
