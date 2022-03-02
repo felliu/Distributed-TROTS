@@ -68,6 +68,10 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     check_null(minimise_var, "Could not read Minimise field from struct\n");
     this->minimise = cast_from_double<bool>(minimise_var);
 
+    matvar_t* active_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Active", 0);
+    check_null(active_var, "Could not read Active field from struct\n");
+    this->active = cast_from_double<bool>(active_var);
+
     //The IsConstraint field goes against the trend of using doubles, and is actually a MATLAB logical val,
     //which matio has as a MAT_C_UINT8
     matvar_t* is_cons_var = Mat_VarGetStructFieldByName(problem_struct_entry, "IsConstraint", 0);
@@ -294,6 +298,7 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
         for (int i = 0; i < nnz; ++i) {
             non_zero_cols.insert(col_inds[i]);
         }
+        non_zeros.reserve(non_zeros.size());
         //Convert to vector before returning
         std::copy(non_zero_cols.cbegin(), non_zero_cols.cend(), std::back_inserter(non_zeros));
 
@@ -302,7 +307,7 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
         const auto& avg_dose_matrix = std::get<std::vector<double>>(*(this->matrix_ref));
         for (int i = 0; i < avg_dose_matrix.size(); ++i) {
             double entry = avg_dose_matrix[i];
-            if (entry >= 1e-9) {
+            if (entry >= 1e-20) {
                 non_zeros.push_back(i);
             }
         }

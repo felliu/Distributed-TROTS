@@ -95,6 +95,10 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
         matvar_t* struct_elem = Mat_VarGetStructs(problem_struct, start, stride, edge, 0);
         const TROTSEntry entry{struct_elem, this->trots_data.matrix_struct, this->matrices};
         std::cerr << "TROTSEntry read!\n\n";
+
+        if (!entry.is_active())
+            continue;
+
         if (entry.is_constraint()) {
             this->constraint_entries.push_back(entry);
             auto vec = entry.get_grad_nonzero_idxs();
@@ -169,15 +173,6 @@ void TROTSProblem::calc_constraints(const double* x, double* cons_vals) const {
     }
 }
 
-void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals) const {
-    int idx = 0;
-    for (const auto& constraint_entry : constraint_entries) {
-        std::vector<double> grad_vals = constraint_entry.calc_sparse_grad(x);
-        double sum = 0.0;
-        for (double v : grad_vals) {
-            jacobian_vals[idx] = v;
-            sum += v;
-            ++idx;
-        }
-    }
-}
+
+
+

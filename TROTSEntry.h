@@ -15,6 +15,7 @@ public:
                                               std::vector<double>>
                                 >& mat_refs);
     bool is_constraint() const noexcept { return this->is_cons; }
+    bool is_active() const noexcept { return this->active; }
     double calc_value(const double* x) const;
     double get_weight() const { return this->weight; }
     void calc_gradient(const double* x, double* grad) const;
@@ -51,6 +52,7 @@ private:
 
     std::vector<int> grad_nonzero_idxs;
 
+    bool active;
     bool minimise;
     bool is_cons;
 

@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <fstream>
 #include <random>
 
 std::vector<double> init_rand_vector(int size) {
@@ -13,6 +14,20 @@ std::vector<double> init_rand_vector(int size) {
         x.push_back(std::rand() / static_cast<double>(RAND_MAX));
 
     return x;
+}
+
+template <typename T>
+void dump_vector_to_file(const std::vector<T>& vec, const std::string& path, bool append=false)
+{
+    std::ofstream outfile;
+    if (append)
+        outfile.open(path, std::ios::binary | std::ios::app);
+    else
+        outfile.open(path, std::ios::binary | std::ios::out);
+
+    size_t sz = vec.size();
+    outfile.write(reinterpret_cast<const char*>(&sz), sizeof(sz));
+    outfile.write(reinterpret_cast<const char*>(vec.data()), sizeof(T) * sz);
 }
 
 void test_value_calc(const std::vector<TROTSEntry>& entries, const std::vector<double>& x) {
@@ -58,10 +73,24 @@ void test_gradient_calc(const std::vector<TROTSEntry>& entries, const std::vecto
 
 }
 
+void calc_jacobian_sparsity(const TROTSProblem& problem) {
+    std::vector<int> col_nonzero_hist(problem.get_num_vars(), 0);
+    int row = 0;
+    for (const auto& cons_entry : problem.constraint_entries) {
+        std::vector<int> col_idxs = cons_entry.get_grad_nonzero_idxs();
+        for (int idx : col_idxs) {
+            std::cerr << "Row: " << row << ", col: " << idx << "\n";
+            col_nonzero_hist[idx]++;
+        }
+        row++;
+    }
+    dump_vector_to_file(col_nonzero_hist, "col_idx_hist_hn_01.bin");
+}
+
 int main(int argc, char* argv[])
 {
-    ipopt_main_func(argc, argv);
-    return 0;
+    /*ipopt_main_func(argc, argv);
+    return 0;*/
     if (argc != 2)  {
         std::cerr << "Incorrect number of arguments\n";
         std::cerr << "Usage: ./program <mat_file_path>\n";
@@ -72,6 +101,8 @@ int main(int argc, char* argv[])
     std::filesystem::path path{path_str};
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
+    calc_jacobian_sparsity(trots_problem);
+    return 0;
 
     std::vector<double> x = init_rand_vector(trots_problem.get_num_vars());
     test_value_calc(trots_problem.objective_entries, x);
