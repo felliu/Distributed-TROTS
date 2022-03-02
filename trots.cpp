@@ -166,6 +166,16 @@ void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
         }
     }
 }
+void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals) const {
+    int idx = 0;
+    for (const auto& constraint_entry : constraint_entries) {
+        std::vector<double> grad_vals = constraint_entry.calc_sparse_grad(x);
+        for (double v : grad_vals) {
+            jacobian_vals[idx] = v;
+            ++idx;
+        }
+    }
+}
 
 void TROTSProblem::calc_constraints(const double* x, double* cons_vals) const {
     for (int i = 0; i < this->constraint_entries.size(); ++i) {
