@@ -1,4 +1,5 @@
 #include "trots.h"
+#include "util.h"
 
 #include "trots_ipopt.h"
 
@@ -16,19 +17,7 @@ std::vector<double> init_rand_vector(int size) {
     return x;
 }
 
-template <typename T>
-void dump_vector_to_file(const std::vector<T>& vec, const std::string& path, bool append=false)
-{
-    std::ofstream outfile;
-    if (append)
-        outfile.open(path, std::ios::binary | std::ios::app);
-    else
-        outfile.open(path, std::ios::binary | std::ios::out);
 
-    size_t sz = vec.size();
-    outfile.write(reinterpret_cast<const char*>(&sz), sizeof(sz));
-    outfile.write(reinterpret_cast<const char*>(vec.data()), sizeof(T) * sz);
-}
 
 void test_value_calc(const std::vector<TROTSEntry>& entries, const std::vector<double>& x) {
     int idx = 0;

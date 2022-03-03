@@ -1,4 +1,5 @@
 #include "trots_ipopt.h"
+#include "util.h"
 
 #include "coin-or/IpIpoptApplication.hpp"
 
@@ -111,6 +112,15 @@ void TROTS_ipopt::finalize_solution(Ipopt::SolverReturn status, int n,
     int m, const double* g, const double* lambda, double obj,
     const Ipopt::IpoptData* ip_data, Ipopt::IpoptCalculatedQuantities* ip_cq) {
 
+    //Output to file: reuse code for dumping std::vector arrays to file
+    std::vector<double> x_vec;
+    x_vec.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        x_vec.push_back(x[i]);
+    }
+
+    dump_vector_to_file(x_vec, "hn_01_ipopt_solution.bin");
+
     std::cout << "IPOPT finalize_solution called\n";
     std::cout << "Exit status: " << status << "\n";
 }
@@ -134,7 +144,7 @@ int ipopt_main_func(int argc, char* argv[]) {
     app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
     app->Options()->SetIntegerValue("max_iter", 20000);
     app->Options()->SetNumericValue("tol", 1e-9);
-    app->Options()->SetStringValue("derivative_test", "first-order");
+    //app->Options()->SetStringValue("derivative_test", "first-order");
 
     Ipopt::ApplicationReturnStatus status;
     status = app->Initialize();

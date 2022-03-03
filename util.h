@@ -1,6 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 #include <string>
+#include <fstream>
 
 struct matvar_t;
 
@@ -17,4 +18,17 @@ DestType cast_from_double(matvar_t* var) {
     return static_cast<DestType>(*data);
 }
 
+template <typename T>
+void dump_vector_to_file(const std::vector<T>& vec, const std::string& path, bool append=false)
+{
+    std::ofstream outfile;
+    if (append)
+        outfile.open(path, std::ios::binary | std::ios::app);
+    else
+        outfile.open(path, std::ios::binary | std::ios::out);
+
+    size_t sz = vec.size();
+    outfile.write(reinterpret_cast<const char*>(&sz), sizeof(sz));
+    outfile.write(reinterpret_cast<const char*>(vec.data()), sizeof(T) * sz);
+}
 #endif
