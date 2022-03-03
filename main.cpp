@@ -78,8 +78,8 @@ void calc_jacobian_sparsity(const TROTSProblem& problem) {
 
 int main(int argc, char* argv[])
 {
-    ipopt_main_func(argc, argv);
-    return 0;
+    /*ipopt_main_func(argc, argv);
+    return 0;*/
     if (argc != 2)  {
         std::cerr << "Incorrect number of arguments\n";
         std::cerr << "Usage: ./program <mat_file_path>\n";
@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
     //calc_jacobian_sparsity(trots_problem);
-    return 0;
+    //return 0;
 
     std::vector<double> x = init_rand_vector(trots_problem.get_num_vars());
     test_value_calc(trots_problem.objective_entries, x);

@@ -62,7 +62,6 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     check_null(id_var, "Could not read id field from struct\n");
     this->id = cast_from_double<int>(id_var);
 
-    this->matrix_ref = &mat_refs[this->id - 1];
 
     matvar_t* minimise_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Minimise", 0);
     check_null(minimise_var, "Could not read Minimise field from struct\n");
@@ -92,6 +91,14 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     else
         this->type = get_nonlinear_function_type(TROTS_type);
 
+    if (this->type == FunctionType::Mean) {
+        this->matrix_ref = nullptr;
+        this->mean_vec_ref = &std::get<std::vector<double>>(mat_refs[this->id - 1]);
+    } else {
+        this->mean_vec_ref = nullptr;
+        this->matrix_ref = &std::get<MKL_sparse_matrix<double>>(mat_refs[this->id - 1]);
+    }
+
     matvar_t* weight_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Weight", 0);
     check_null(weight_var, "Could not read the \"Weight\" field from the problem struct.\n");
     this->weight = *static_cast<double*>(weight_var->data);
@@ -110,21 +117,13 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     //A lot of the objective functions require a temporary y vector to hold the dose. To avoid allocating that space for each
     //call to compute the objective value, we pre-allocate storage for it in this->y_vec.
     if (this->type != FunctionType::Mean) {
-        const auto num_rows = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_rows();
-        const auto num_cols = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_cols();
+        const auto num_rows = this->matrix_ref->get_rows();
+        const auto num_cols = this->matrix_ref->get_cols();
         this->y_vec.resize(num_rows);
         this->grad_tmp.resize(num_rows);
-    } else {
-        const auto num_cols = std::get<std::vector<double>>(*(this->matrix_ref)).size();
-    }
-
-    //For convenience purposes, store the number of variables as a member. We can determine the number of variables
-    //by looking at the number of columns in the dose matrix, or in the case of mean, the number of elements in the mean vector.
-    if (this->type != FunctionType::Mean) {
-        auto num_cols = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref)).get_cols();
         this->num_vars = num_cols;
     } else {
-        auto num_cols = std::get<std::vector<double>>(*(this->matrix_ref)).size();
+        const auto num_cols = this->mean_vec_ref->size();
         this->num_vars = num_cols;
     }
 
@@ -135,6 +134,10 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     }
 
     this->grad_nonzero_idxs = this->calc_grad_nonzero_idxs();
+    //Sanity check: the mean function type should have a collapsed dose matrix (i.e. a vector)
+    //              other function types should have a matrix. Check that the other type is nullptr for each.
+    assert((this->type == FunctionType::Mean && this->matrix_ref == nullptr)
+        || (this->type != FunctionType::Mean && this->mean_vec_ref == nullptr));
 }
 
 std::vector<double> TROTSEntry::calc_sparse_grad(const double* x) const {
@@ -171,34 +174,29 @@ double TROTSEntry::calc_value(const double* x) const {
 }
 
 double TROTSEntry::calc_quadratic(const double* x) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    return 0.5 * matrix.quad_mul(x, &this->y_vec[0]) + this->c;
+    return 0.5 * this->matrix_ref->quad_mul(x, &this->y_vec[0]) + this->c;
 }
 
 double TROTSEntry::calc_max(const double* x) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    matrix.vec_mul(x, &this->y_vec[0]);
+    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
 
     const double max_elem = *std::max_element(this->y_vec.cbegin(), this->y_vec.cend());
     return max_elem;
 }
 
 double TROTSEntry::calc_min(const double* x) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    matrix.vec_mul(x, &this->y_vec[0]);
+    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
 
     const double min_elem = *std::min_element(this->y_vec.cbegin(), this->y_vec.cend());
     return min_elem;
 }
 
 double TROTSEntry::calc_mean(const double* x) const {
-    const auto& vector = std::get<std::vector<double>>(*(this->matrix_ref));
-    return cblas_ddot(vector.size(), x, 1, &vector[0], 1);
+    return cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
 }
 
 double TROTSEntry::calc_LTCP(const double* x) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    matrix.vec_mul(x, &this->y_vec[0]);
+    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
 
     const double prescribed_dose = this->func_params[0];
     const double alpha = this->func_params[1];
@@ -207,12 +205,11 @@ double TROTSEntry::calc_LTCP(const double* x) const {
         sum += std::exp(-alpha * (this->y_vec[i] - prescribed_dose));
     }
 
-    return sum / matrix.get_rows();
+    return sum / this->matrix_ref->get_rows();
 }
 
 double TROTSEntry::calc_gEUD(const double* x) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    matrix.vec_mul(x, &this->y_vec[0]);
+    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
     const auto num_voxels = this->y_vec.size();
 
     const double a = this->func_params[0];
@@ -225,8 +222,7 @@ double TROTSEntry::calc_gEUD(const double* x) const {
 }
 
 double TROTSEntry::quadratic_penalty_mean(const double* x) const {
-    const auto& vector = std::get<std::vector<double>>(*(this->matrix_ref));
-    const double mean = cblas_ddot(vector.size(), x, 1, &vector[0], 1);
+    const double mean = cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
     const double diff = this->minimise ?
                             std::min(mean - this->rhs, 0.0) :
                             std::max(mean - this->rhs, 0.0);
@@ -234,8 +230,7 @@ double TROTSEntry::quadratic_penalty_mean(const double* x) const {
 }
 
 double TROTSEntry::quadratic_penalty_min(const double* x) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    matrix.vec_mul(x, &this->y_vec[0]);
+    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
 
     double sq_diff = 0.0;
     const size_t num_voxels = this->y_vec.size();
@@ -248,8 +243,7 @@ double TROTSEntry::quadratic_penalty_min(const double* x) const {
 }
 
 double TROTSEntry::quadratic_penalty_max(const double* x) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    matrix.vec_mul(x, &this->y_vec[0]);
+    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
 
     double sq_diff = 0.0;
     const size_t num_voxels = this->y_vec.size();
@@ -290,10 +284,9 @@ void TROTSEntry::calc_gradient(const double* x, double* grad) const {
 std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
     std::vector<int> non_zeros;
     if (this->function_type() != FunctionType::Mean) {
-        const auto& dose_mat = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-        int cols = dose_mat.get_cols();
-        int nnz = dose_mat.get_nnz();
-        int* col_inds = dose_mat.get_col_inds();
+        int cols = this->matrix_ref->get_cols();
+        int nnz = this->matrix_ref->get_nnz();
+        int* col_inds = this->matrix_ref->get_col_inds();
         std::set<int> non_zero_cols;
         for (int i = 0; i < nnz; ++i) {
             non_zero_cols.insert(col_inds[i]);
@@ -304,9 +297,8 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
 
     } else {
         //The gradient is just the "average vector" so find the nonzeros there
-        const auto& avg_dose_matrix = std::get<std::vector<double>>(*(this->matrix_ref));
-        for (int i = 0; i < avg_dose_matrix.size(); ++i) {
-            double entry = avg_dose_matrix[i];
+        for (int i = 0; i < this->mean_vec_ref->size(); ++i) {
+            double entry = (*this->mean_vec_ref)[i];
             if (entry >= 1e-20) {
                 non_zeros.push_back(i);
             }
@@ -316,15 +308,13 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
 }
 
 void TROTSEntry::mean_grad(const double* x, double* grad) const {
-    const auto& avg_dose_matrix = std::get<std::vector<double>>(*(this->matrix_ref));
-    std::copy(avg_dose_matrix.cbegin(), avg_dose_matrix.cend(), grad);
+    std::copy(this->mean_vec_ref->cbegin(), this->mean_vec_ref->cend(), grad);
 }
 
 void TROTSEntry::LTCP_grad(const double* x, double* grad, bool cached_dose) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    const auto num_voxels = matrix.get_rows();
+    const auto num_voxels = this->matrix_ref->get_rows();
     if (!cached_dose) {
-        matrix.vec_mul(x, &this->y_vec[0]);
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
     }
 
     const double prescribed_dose = this->func_params[0];
@@ -333,14 +323,13 @@ void TROTSEntry::LTCP_grad(const double* x, double* grad, bool cached_dose) cons
         this->grad_tmp[i] = -alpha / num_voxels * std::exp(-alpha * (this->y_vec[i] - prescribed_dose));
     }
 
-    matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
+    this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);
 }
 
 void TROTSEntry::gEUD_grad(const double* x, double* grad, bool cached_dose) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    const auto num_voxels = matrix.get_rows();
+    const auto num_voxels = this->matrix_ref->get_rows();
     if (!cached_dose) {
-        matrix.vec_mul(x, &this->y_vec[0]);
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
     }
     const double a = this->func_params[0];
 
@@ -356,38 +345,35 @@ void TROTSEntry::gEUD_grad(const double* x, double* grad, bool cached_dose) cons
         this->grad_tmp[i] = std::pow(this->y_vec[i], a - 1) * common_factor;
     }
 
-    matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
+    this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);
 }
 
 void TROTSEntry::quad_min_grad(const double* x, double* grad, bool cached_dose) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
     //Sometimes, this->y_vec will already contain the current dose vector, no need to recompute in this case
     if (!cached_dose) {
-        matrix.vec_mul(x, &this->y_vec[0]);
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
     }
 
     for (int i = 0; i < this->grad_tmp.size(); ++i) {
         this->grad_tmp[i] = 2 * std::min(this->y_vec[i] - this->rhs, 0.0);
     }
 
-    matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
+    this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);
 }
 
 void TROTSEntry::quad_max_grad(const double* x, double* grad, bool cached_dose) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
     //Sometimes, this->y_vec will already contain the current dose vector, no need to recompute in this case
     if (!cached_dose) {
-        matrix.vec_mul(x, &this->y_vec[0]);
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
     }
 
     for (int i = 0; i < this->grad_tmp.size(); ++i) {
         grad_tmp[i] = 2 * std::max(this->y_vec[i] - this->rhs, 0.0);
     }
 
-    matrix.vec_mul_transpose(&this->grad_tmp[0], grad);
+    this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);
 }
 
 void TROTSEntry::quad_grad(const double* x, double* grad) const {
-    const auto& matrix = std::get<MKL_sparse_matrix<double>>(*(this->matrix_ref));
-    matrix.vec_mul(x, grad);
+    this->matrix_ref->vec_mul(x, grad);
 }
