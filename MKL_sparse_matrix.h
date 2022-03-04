@@ -7,9 +7,11 @@
 #include <cstring> //for std::memcpy
 #include <iostream>
 #include <numeric>
-#include <utility>
-#include <tuple>
+#include <memory>
+
 #include <mkl.h>
+
+#include "SparseMat.h"
 
 namespace {
     bool check_MKL_status(sparse_status_t status) {
@@ -46,12 +48,14 @@ namespace {
 }
 
 template <typename T>
-class MKL_sparse_matrix {
+class MKL_sparse_matrix : public SparseMatrix<T> {
 using MKL_mat_handle = sparse_matrix_t;
 public:
     template <typename IdxType>
-    static MKL_sparse_matrix from_CSC_mat(int nnz, int rows, int cols,
-                                          const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs);
+    static std::unique_ptr<SparseMatrix<T>>
+    from_CSC_mat(int nnz, int rows, int cols,
+                 const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs);
+
     MKL_sparse_matrix() = default;
 
     MKL_sparse_matrix(const MKL_sparse_matrix& rhs);
@@ -59,19 +63,21 @@ public:
 
     MKL_sparse_matrix(MKL_sparse_matrix&& rhs);
 
-    int get_rows() const noexcept {
+    int get_rows() const noexcept override {
         return this->rows;
     }
 
-    int get_cols() const noexcept {
+    int get_cols() const noexcept override {
         return this->cols;
     }
 
-    int get_nnz() const noexcept {
+    int get_nnz() const noexcept override {
         return this->nnz;
     }
 
-    int* get_col_inds() const noexcept { return this->indices; }
+    const int* get_col_inds() const noexcept override {
+        return this->indices;
+    }
 
     friend void swap(MKL_sparse_matrix& m1, MKL_sparse_matrix& m2) {
         std::swap(m1.data, m2.data);
@@ -84,10 +90,10 @@ public:
         std::swap(m1.cols, m2.cols);
     }
 
-    //Computes A*x and stores the result in y.
-    void vec_mul(const T* x, T* y, bool transpose = false) const;
+    //Computes A * x and stores result in y.
+    void vec_mul(const T* x, T* y) const override;
     //Computes A^T * x and stores result in y.
-    void vec_mul_transpose(const T* x, T* y) const;
+    void vec_mul_transpose(const T* x, T* y) const override;
     //Computes the value of the quadratic form x^T * A * x and returns the value.
     //The value A * x is stored in y.
     T quad_mul(const T* x, T* y) const;
@@ -97,6 +103,7 @@ public:
     ~MKL_sparse_matrix();
 
 private:
+    void vec_mul_impl(const T* x, T* y, bool transpose = false) const;
     void init_mkl_handle();
     MKL_mat_handle mkl_handle;
     int nnz, rows, cols;
@@ -156,10 +163,10 @@ MKL_sparse_matrix<T>::~MKL_sparse_matrix() {
 
 template <typename T>
 template <typename IdxType>
-MKL_sparse_matrix<T>
+std::unique_ptr<SparseMatrix<T>>
 MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs) {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
-    MKL_sparse_matrix<T> mat;
+    MKL_sparse_matrix<T>* mat = new MKL_sparse_matrix<T>();
 
     std::vector<int> row_idxs_int;
     std::vector<int> col_ptrs_int;
@@ -169,13 +176,13 @@ MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, c
     std::transform(row_idxs, row_idxs + nnz, std::back_inserter(row_idxs_int), [](auto x) { return static_cast<int>(x); });
     std::transform(col_ptrs, col_ptrs + cols + 1, std::back_inserter(col_ptrs_int), [](auto x) { return static_cast<int>(x); });
 
-    mat.rows = rows;
-    mat.cols = cols;
-    mat.nnz = nnz;
-    std::tie(mat.data, mat.indices, mat.indptrs) = csc_to_csr(rows, cols, vals, &row_idxs_int[0], &col_ptrs_int[0]);
+    mat->rows = rows;
+    mat->cols = cols;
+    mat->nnz = nnz;
+    std::tie(mat->data, mat->indices, mat->indptrs) = csc_to_csr(rows, cols, vals, &row_idxs_int[0], &col_ptrs_int[0]);
 
-    mat.init_mkl_handle();
-    return mat;
+    mat->init_mkl_handle();
+    return std::unique_ptr<MKL_sparse_matrix<T>>(mat);
 }
 
 template <typename T>
@@ -203,7 +210,17 @@ void MKL_sparse_matrix<T>::init_mkl_handle() {
 }
 
 template <typename T>
-void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y, bool transpose) const {
+void MKL_sparse_matrix<T>::vec_mul_transpose(const T* x, T* y) const {
+    this->vec_mul_impl(x, y, true);
+}
+
+template <typename T>
+void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y) const {
+    this->vec_mul_impl(x, y, false);
+}
+
+template <typename T>
+void MKL_sparse_matrix<T>::vec_mul_impl(const T* x, T* y, bool transpose) const {
     static_assert(std::is_same_v<T, double> || std::is_same_v<T, float>);
     sparse_status_t status = SPARSE_STATUS_SUCCESS;
     const sparse_operation_t trans_op = transpose ? SPARSE_OPERATION_TRANSPOSE : SPARSE_OPERATION_NON_TRANSPOSE;
@@ -214,11 +231,6 @@ void MKL_sparse_matrix<T>::vec_mul(const T* x, T* y, bool transpose) const {
         status = mkl_sparse_s_mv(trans_op, 1.0, this->mkl_handle, desc, x, 0.0, y);
 
     assert(check_MKL_status(status));
-}
-
-template <typename T>
-void MKL_sparse_matrix<T>::vec_mul_transpose(const T* x, T* y) const {
-    this->vec_mul(x, y, true);
 }
 
 template <typename T>

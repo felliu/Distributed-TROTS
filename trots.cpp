@@ -1,11 +1,14 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <map>
 #include <stdexcept>
 
 #include "trots.h"
 #include "util.h"
+#include "EigenSparseMat.h"
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -26,7 +29,7 @@ namespace {
     }
 
     //Reads the Matlab sparse matrix stored at idx dataID - 1 and converts it to a CSR format and MKL sparse type.
-    MKL_sparse_matrix<double> read_and_cvt_sparse_mat(matvar_t* matrix_entry) {
+    std::unique_ptr<SparseMatrix<double>> read_and_cvt_sparse_mat(matvar_t* matrix_entry) {
         matvar_t* matrix_data_var = Mat_VarGetStructFieldByName(matrix_entry, "A", 0);
         check_null(matrix_data_var, "Could not read matrix A from struct.\n");
         assert(matrix_data_var->class_type == MAT_C_SPARSE);
@@ -37,10 +40,17 @@ namespace {
         const int rows = static_cast<int>(matrix_data_var->dims[0]);
         const int cols = static_cast<int>(matrix_data_var->dims[1]);
 
+#ifdef USE_MKL
         return MKL_sparse_matrix<double>::from_CSC_mat(nnz, rows, cols,
                                                        static_cast<double*>(matlab_sparse_m->data),
                                                        matlab_sparse_m->ir,
                                                        matlab_sparse_m->jc);
+#else
+        return EigenSparseMat<double>::from_CSC_mat(nnz, rows, cols,
+                                                    static_cast<double*>(matlab_sparse_m->data),
+                                                    matlab_sparse_m->ir,
+                                                    matlab_sparse_m->jc);
+#endif
     }
 }
 
@@ -133,7 +143,7 @@ void TROTSProblem::read_dose_matrices() {
         //For the mean functions, the "A"-matrix is reduced to a dense vector.
         //Check if we have a sparse matrix or dense vector
         if (A->class_type == MAT_C_SPARSE) {
-            new_variant.emplace<MKL_sparse_matrix<double>>(
+            new_variant.emplace<std::unique_ptr<SparseMatrix<double>>>(
                 read_and_cvt_sparse_mat(matrix_entry)
             );
         }

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <memory>
 #include <numeric>
 #include <set>
 #include <vector>
@@ -40,9 +41,9 @@ namespace {
 }
 
 TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
-                       const std::vector<std::variant<MKL_sparse_matrix<double>,
+                       const std::vector<std::variant<std::unique_ptr<SparseMatrix<double>>,
                                          std::vector<double>>
-                                        >& mat_refs) :
+                                         >& mat_refs) :
     rhs{0}, weight{0}, c{0}
 {
     assert(problem_struct_entry->class_type == MAT_C_STRUCT);
@@ -96,7 +97,7 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
         this->mean_vec_ref = &std::get<std::vector<double>>(mat_refs[this->id - 1]);
     } else {
         this->mean_vec_ref = nullptr;
-        this->matrix_ref = &std::get<MKL_sparse_matrix<double>>(mat_refs[this->id - 1]);
+        this->matrix_ref = std::get<std::unique_ptr<SparseMatrix<double>>>(mat_refs[this->id - 1]).get();
     }
 
     matvar_t* weight_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Weight", 0);
@@ -286,7 +287,7 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
     if (this->function_type() != FunctionType::Mean) {
         int cols = this->matrix_ref->get_cols();
         int nnz = this->matrix_ref->get_nnz();
-        int* col_inds = this->matrix_ref->get_col_inds();
+        const int* col_inds = this->matrix_ref->get_col_inds();
         std::set<int> non_zero_cols;
         for (int i = 0; i < nnz; ++i) {
             non_zero_cols.insert(col_inds[i]);

@@ -1,9 +1,10 @@
 #ifndef TROTS_H
 #define TROTS_H
 
-#include <filesystem>
-#include <string>
 #include <cassert>
+#include <filesystem>
+#include <memory>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -60,7 +61,7 @@ private:
     //List of matrix entries, indexed by dataID.
     //If the FunctionType is mean, the value is computed using a dot product with a dense vector,
     //In other cases, the dose is calculated using a dose deposition matrix.
-    std::vector<std::variant<MKL_sparse_matrix<double>, std::vector<double>>> matrices;
+    std::vector<std::variant<std::unique_ptr<SparseMatrix<double>>, std::vector<double>>> matrices;
 };
 
 #endif

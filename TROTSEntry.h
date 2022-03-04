@@ -3,6 +3,8 @@
 
 #include <variant>
 
+#include "SparseMat.h"
+
 enum class FunctionType {
     Min, Max, Mean, Quadratic,
     gEUD, LTCP, DVH, Chain
@@ -11,7 +13,7 @@ enum class FunctionType {
 class TROTSEntry {
 public:
     TROTSEntry(matvar_t* problem_struct_entry, matvar_t* data_struct,
-               const std::vector<std::variant<MKL_sparse_matrix<double>,
+               const std::vector<std::variant<std::unique_ptr<SparseMatrix<double>>,
                                               std::vector<double>>
                                 >& mat_refs);
     bool is_constraint() const noexcept { return this->is_cons; }
@@ -63,7 +65,8 @@ private:
     //all the matrices are stored in TROTSProblem, and the TROTSEntries each have a reference to their matrix instead.
     //const std::variant<MKL_sparse_matrix<double>, std::vector<double>>* matrix_ref;
     double c; //Scalar factor used in quadratic cost functions.
-    const MKL_sparse_matrix<double>* matrix_ref;
+    //const MKL_sparse_matrix<double>* matrix_ref;
+    const SparseMatrix<double>* matrix_ref;
     const std::vector<double>* mean_vec_ref;
 
     //When calculating many objective values, a temporary store for the A*x is needed. Provide it here once so it does not

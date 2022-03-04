@@ -144,7 +144,7 @@ int ipopt_main_func(int argc, char* argv[]) {
     app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
     app->Options()->SetIntegerValue("max_iter", 20000);
     app->Options()->SetNumericValue("tol", 1e-9);
-    //app->Options()->SetStringValue("derivative_test", "first-order");
+    app->Options()->SetStringValue("derivative_test", "first-order");
 
     Ipopt::ApplicationReturnStatus status;
     status = app->Initialize();
