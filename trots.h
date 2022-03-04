@@ -12,7 +12,7 @@
 
 
 #include "OptimizationProblem.h"
-#include "SparseMat.h"
+#include "MKL_sparse_matrix.h"
 #include "TROTSEntry.h"
 
 struct TROTSMatFileData {

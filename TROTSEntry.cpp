@@ -7,7 +7,7 @@
 
 #include <matio.h>
 
-#include "SparseMat.h"
+#include "MKL_sparse_matrix.h"
 #include "TROTSEntry.h"
 #include "util.h"
 
