@@ -12,6 +12,7 @@
 #include <mkl.h>
 
 #include "SparseMat.h"
+#include "util.h"
 
 namespace {
     bool check_MKL_status(sparse_status_t status) {

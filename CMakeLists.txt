@@ -3,8 +3,11 @@ cmake_minimum_required(VERSION 3.13)
 project(trots_benchmark LANGUAGES CXX C)
 find_package(HDF5 MODULE REQUIRED)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/share/eigen3")
+
 set(MKL_INTERFACE lp64)
 find_package(MKL CONFIG REQUIRED)
+find_package(Eigen3 REQUIRED)
 message(STATUS "${MKL_IMPORTED_TARGETS}") #Provides available list of targets based on input
 add_subdirectory(external/matio)
 
@@ -30,10 +33,10 @@ set_target_properties(trots_test
     PROPERTIES
         CXX_EXTENSIONS off)
 
-target_compile_options(trots_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-target_compile_definitions(trots_test PUBLIC MKL_LP64)
+target_compile_options(trots_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS> -fopenmp)
+target_compile_definitions(trots_test PUBLIC MKL_LP64 USE_MKL)
 target_include_directories(trots_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(trots_test PUBLIC matio::matio $<LINK_ONLY:MKL::MKL> ${IPOPT})
+target_link_libraries(trots_test PUBLIC matio::matio $<LINK_ONLY:MKL::MKL> ${IPOPT} Eigen3::Eigen)
 
 
 

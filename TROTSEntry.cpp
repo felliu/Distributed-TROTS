@@ -204,9 +204,13 @@ double TROTSEntry::calc_LTCP(const double* x) const {
     double sum = 0.0;
     for (int i = 0; i < this->y_vec.size(); ++i) {
         sum += std::exp(-alpha * (this->y_vec[i] - prescribed_dose));
+        std::cerr << "dose diff: " << this->y_vec[i] - prescribed_dose << "\n";
     }
 
-    return sum / this->matrix_ref->get_rows();
+    const double val = sum / static_cast<double>(this->matrix_ref->get_rows());
+    std::cerr << "LTCP val: " << val << "\n";
+
+    return val;
 }
 
 double TROTSEntry::calc_gEUD(const double* x) const {
@@ -321,7 +325,9 @@ void TROTSEntry::LTCP_grad(const double* x, double* grad, bool cached_dose) cons
     const double prescribed_dose = this->func_params[0];
     const double alpha = this->func_params[1];
     for (int i = 0; i < this->grad_tmp.size(); ++i) {
-        this->grad_tmp[i] = -alpha / num_voxels * std::exp(-alpha * (this->y_vec[i] - prescribed_dose));
+        this->grad_tmp[i] =
+            -alpha * std::exp(-alpha * (this->y_vec[i] - prescribed_dose))
+                / static_cast<double>(num_voxels);
     }
 
     this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);
