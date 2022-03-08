@@ -163,23 +163,40 @@ std::vector<double> TROTSEntry::calc_sparse_grad(const double* x) const {
 }
 
 double TROTSEntry::calc_value(const double* x) const {
+    double val = 0.0;
     switch (this->type) {
         case FunctionType::Quadratic:
-            return this->calc_quadratic(x);
+            val = this->calc_quadratic(x);
+            break;
         case FunctionType::Max:
-            return this->quadratic_penalty_max(x);
+            val = this->quadratic_penalty_max(x);
+            break;
         case FunctionType::Min:
-            return this->quadratic_penalty_min(x);
+            val = this->quadratic_penalty_min(x);
+            break;
         case FunctionType::Mean:
-            return this->calc_mean(x);
+            val = this->calc_mean(x);
+            break;
         case FunctionType::gEUD:
-            return this->calc_gEUD(x);
+            val = this->calc_gEUD(x);
+            break;
         case FunctionType::LTCP:
-            return this->calc_LTCP(x);
+            val = this->calc_LTCP(x);
+            break;
         default:
-            //throw "Not implemented yet!\n";
-            return 0.0;
+            break;
     }
+
+    //If this is a constraint, we need to take care to include the RHS.
+    if (this->is_constraint()) {
+        //When using quadratic penalties, the rhs is already taken care of implicitly in the function value
+        const double rhs_val = (this->type == FunctionType::Max || this->type == FunctionType::Min)
+                                ? 0.0
+                                : this->rhs;
+        val = val - rhs_val;
+    }
+
+    return val;
 }
 
 double TROTSEntry::calc_quadratic(const double* x) const {
