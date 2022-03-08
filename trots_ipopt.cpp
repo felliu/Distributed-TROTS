@@ -24,16 +24,22 @@ bool TROTS_ipopt::get_nlp_info(
 
 bool TROTS_ipopt::get_bounds_info(int n, double* x_l, double* x_u, int m, double* g_l, double* g_u) {
     //By default, IPOPT considers values greater than 1e19 in magnitude as infinite.
-    constexpr double negative_inf = -1e20;
+    constexpr double neg_inf = -1e20;
     constexpr double pos_inf = 1e20;
     for (int i = 0; i < n; ++i) {
-        x_l[i] = negative_inf;
+        x_l[i] = 0.0;
         x_u[i] = pos_inf;
     }
 
     for (int i = 0; i < m; ++i) {
-        g_l[i] = 0.0;
-        g_u[i] = pos_inf;
+        const TROTSEntry& cons_entry = this->problem->constraint_entries[i];
+        if (cons_entry.is_minimisation()) {
+            g_l[i] = neg_inf;
+            g_u[i] = cons_entry.get_rhs();
+        } else {
+            g_l[i] = cons_entry.get_rhs();
+            g_u[i] = pos_inf;
+        }
     }
 
     return true;
@@ -45,9 +51,32 @@ bool TROTS_ipopt::get_starting_point(
     int m, bool init_lambda, double* lambda) {
 
     if (init_x) {
-        //TODO: smarter initialization
+        //The initialization of the primal variables is based on the goal of
+        //making the LTCP objectives not too large to start with.
+        //We use the "simple" initialization strategy described in
+        //https://doi.org/10.1007/s10589-017-9919-4
+
+        std::vector<TROTSEntry> LTCP_entries;
+        std::copy_if(this->problem->objective_entries.cbegin(), this->problem->objective_entries.cend(),
+                     std::back_inserter(LTCP_entries),
+                     [](const TROTSEntry& e){ return e.function_type() == FunctionType::LTCP; });
+
         for (int i = 0; i < n; ++i) {
-            x[i] = 1.0;
+            x[i] = 100.0;
+        }
+
+        const auto compute_obj_val = [x](const TROTSEntry& e) -> double {
+            return e.calc_value(x);
+        };
+        std::vector<double> LTCP_vals(LTCP_entries.size());
+        std::transform(LTCP_entries.cbegin(), LTCP_entries.cend(),
+                       LTCP_vals.begin(), compute_obj_val);
+        while (std::any_of(LTCP_vals.cbegin(), LTCP_vals.cend(), [](double v){ return v > 1500.0; })) {
+            for (int i = 0; i < n; ++i) {
+                x[i] *= 1.5;
+            }
+            std::transform(LTCP_entries.cbegin(), LTCP_entries.cend(),
+                           LTCP_vals.begin(), compute_obj_val);
         }
     }
 
@@ -119,7 +148,7 @@ void TROTS_ipopt::finalize_solution(Ipopt::SolverReturn status, int n,
         x_vec.push_back(x[i]);
     }
 
-    dump_vector_to_file(x_vec, "hn_01_ipopt_solution.bin");
+    dump_vector_to_file(x_vec, "hn_01_ipopt_solution_05.bin");
 
     std::cout << "IPOPT finalize_solution called\n";
     std::cout << "Exit status: " << status << "\n";
@@ -144,7 +173,8 @@ int ipopt_main_func(int argc, char* argv[]) {
     app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
     app->Options()->SetIntegerValue("max_iter", 20000);
     app->Options()->SetNumericValue("tol", 1e-9);
-    app->Options()->SetStringValue("derivative_test", "first-order");
+    //app->Options()->SetStringValue("derivative_test", "first-order");
+    //app->Options()->SetNumericValue("derivative_test_perturbation", 1e-12);
 
     Ipopt::ApplicationReturnStatus status;
     status = app->Initialize();

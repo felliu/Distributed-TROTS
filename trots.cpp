@@ -112,14 +112,15 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
         }
 
         if (entry.is_constraint()) {
-            if (entry.function_type() == FunctionType::Quadratic)
-                continue;
+            /*if (entry.function_type() == FunctionType::Min)
+                continue;*/
             this->constraint_entries.push_back(entry);
             auto vec = entry.get_grad_nonzero_idxs();
             this->nnz_jac_cons += vec.size();
         } else {
-            if (entry.function_type() != FunctionType::LTCP)
-                continue;
+            /*if (entry.function_type() != FunctionType::LTCP
+                && entry.function_type() != FunctionType::Mean)
+                continue;*/
             this->objective_entries.push_back(entry);
         }
     }
@@ -172,7 +173,7 @@ double TROTSProblem::calc_objective(const double* x) const {
 }
 
 void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
-    std::memset(static_cast<void*>(y), 0, this->num_vars * sizeof(double));
+    std::fill(y, y + this->num_vars, 0.0);
     std::vector<double> grad_tmp(this->num_vars);
 
     for (const auto& entry : this->objective_entries) {

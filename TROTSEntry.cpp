@@ -15,6 +15,15 @@
 namespace {
     const char* func_type_names[] = {"Min", "Max", "Mean", "Quadratic", "gEUD", "LTCP", "DVH", "Chain"};
 
+    std::string get_name_str(const matvar_t* name_var) {
+        assert(name_var->rank == 2 && name_var->dims[0] == 1);
+        const size_t name_len = name_var->dims[1];
+        char null_terminated_buffer[name_len + 1];
+        std::memcpy(static_cast<void*>(&null_terminated_buffer[0]), name_var->data, name_len * sizeof(char));
+        null_terminated_buffer[name_len] = '\0';
+        return std::string(null_terminated_buffer);
+    }
+
     FunctionType get_linear_function_type(int dataID, bool minimise, const std::string& roi_name, matvar_t* matrix_struct) {
         const int zero_indexed_dataID = dataID - 1;
         std::cerr << "Reading name field\n";
@@ -22,7 +31,7 @@ namespace {
         matvar_t* matrix_entry_name_var = Mat_VarGetStructFieldByName(matrix_struct, "Name", zero_indexed_dataID);
         check_null(matrix_entry_name_var, "Failed to read name field of matrix entry\n.");
 
-        std::string matrix_entry_name(static_cast<char*>(matrix_entry_name_var->data));
+        std::string matrix_entry_name = get_name_str(matrix_entry_name_var);
         std::cerr << "Matrix name: " << matrix_entry_name << "\n";
 
         auto n = matrix_entry_name.find("(mean)");
@@ -54,7 +63,7 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     matvar_t* name_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Name", 0);
     check_null(name_var, "Cannot find name variable in problem entry.");
     assert(name_var->class_type == MAT_C_CHAR);
-    this->roi_name = std::string(static_cast<char*>(name_var->data));
+    this->roi_name = get_name_str(name_var);
 
     //Matlab stores numeric values as doubles by default, which seems to be the type
     //used by TROTS as well even for integral values. Do some casting here to convert the data to
@@ -144,7 +153,6 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
 std::vector<double> TROTSEntry::calc_sparse_grad(const double* x) const {
     std::vector<double> dense_grad(this->num_vars);
     this->calc_gradient(x, &dense_grad[0]);
-    double sum = std::accumulate(dense_grad.cbegin(), dense_grad.cend(), 0.0);
     std::vector<double> sparse_grad;
     sparse_grad.reserve(this->grad_nonzero_idxs.size());
     for (int idx : this->grad_nonzero_idxs) {
@@ -202,13 +210,12 @@ double TROTSEntry::calc_LTCP(const double* x) const {
     const double prescribed_dose = this->func_params[0];
     const double alpha = this->func_params[1];
     double sum = 0.0;
-    for (int i = 0; i < this->y_vec.size(); ++i) {
+    const auto num_voxels = this->y_vec.size();
+    for (int i = 0; i < num_voxels; ++i) {
         sum += std::exp(-alpha * (this->y_vec[i] - prescribed_dose));
-        std::cerr << "dose diff: " << this->y_vec[i] - prescribed_dose << "\n";
     }
 
-    const double val = sum / static_cast<double>(this->matrix_ref->get_rows());
-    std::cerr << "LTCP val: " << val << "\n";
+    const double val = sum / static_cast<double>(num_voxels);
 
     return val;
 }
@@ -289,7 +296,6 @@ void TROTSEntry::calc_gradient(const double* x, double* grad) const {
 std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
     std::vector<int> non_zeros;
     if (this->function_type() != FunctionType::Mean) {
-        int cols = this->matrix_ref->get_cols();
         int nnz = this->matrix_ref->get_nnz();
         const int* col_inds = this->matrix_ref->get_col_inds();
         std::set<int> non_zero_cols;
@@ -324,10 +330,9 @@ void TROTSEntry::LTCP_grad(const double* x, double* grad, bool cached_dose) cons
 
     const double prescribed_dose = this->func_params[0];
     const double alpha = this->func_params[1];
-    for (int i = 0; i < this->grad_tmp.size(); ++i) {
+    for (int i = 0; i < num_voxels; ++i) {
         this->grad_tmp[i] =
-            -alpha * std::exp(-alpha * (this->y_vec[i] - prescribed_dose))
-                / static_cast<double>(num_voxels);
+            -alpha / static_cast<double>(num_voxels) * std::exp(-alpha * (this->y_vec[i] - prescribed_dose));
     }
 
     this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);
@@ -361,8 +366,10 @@ void TROTSEntry::quad_min_grad(const double* x, double* grad, bool cached_dose) 
         this->matrix_ref->vec_mul(x, &this->y_vec[0]);
     }
 
-    for (int i = 0; i < this->grad_tmp.size(); ++i) {
-        this->grad_tmp[i] = 2 * std::min(this->y_vec[i] - this->rhs, 0.0);
+    const auto num_vars = this->grad_tmp.size();
+    for (int i = 0; i < num_vars; ++i) {
+        this->grad_tmp[i] = 2 * std::min(this->y_vec[i] - this->rhs, 0.0)
+                                / static_cast<double>(num_vars);
     }
 
     this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);
@@ -374,8 +381,10 @@ void TROTSEntry::quad_max_grad(const double* x, double* grad, bool cached_dose) 
         this->matrix_ref->vec_mul(x, &this->y_vec[0]);
     }
 
-    for (int i = 0; i < this->grad_tmp.size(); ++i) {
-        grad_tmp[i] = 2 * std::max(this->y_vec[i] - this->rhs, 0.0);
+    const auto num_vars = this->grad_tmp.size();
+    for (int i = 0; i < num_vars; ++i) {
+        this->grad_tmp[i] = 2 * std::max(this->y_vec[i] - this->rhs, 0.0)
+                                / static_cast<double>(num_vars);
     }
 
     this->matrix_ref->vec_mul_transpose(&this->grad_tmp[0], grad);

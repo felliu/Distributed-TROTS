@@ -18,8 +18,10 @@ public:
                                 >& mat_refs);
     bool is_constraint() const noexcept { return this->is_cons; }
     bool is_active() const noexcept { return this->active; }
+    bool is_minimisation() const noexcept { return this->minimise; }
     double calc_value(const double* x) const;
-    double get_weight() const { return this->weight; }
+    double get_weight() const noexcept { return this->weight; }
+    double get_rhs() const noexcept { return this->rhs; }
     void calc_gradient(const double* x, double* grad) const;
     std::vector<double> calc_sparse_grad(const double* x) const;
     //Returns the indexes of the non-zero elements in the gradient of the entry.
