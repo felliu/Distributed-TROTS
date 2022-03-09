@@ -7,7 +7,12 @@
 
 #include "trots.h"
 #include "util.h"
+
+#ifdef USE_MKL
+#include "MKL_sparse_matrix.h"
+#else
 #include "EigenSparseMat.h"
+#endif
 
 namespace fs = std::filesystem;
 

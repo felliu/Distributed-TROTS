@@ -11,9 +11,7 @@
 #include <matio.h>
 #include <mkl.h>
 
-
-#include "OptimizationProblem.h"
-#include "MKL_sparse_matrix.h"
+#include "SparseMat.h"
 #include "TROTSEntry.h"
 
 struct TROTSMatFileData {
