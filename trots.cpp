@@ -61,6 +61,7 @@ namespace {
 
 TROTSMatFileData::TROTSMatFileData(const fs::path& path) {
     this->file_fp = Mat_Open(path.c_str(), MAT_ACC_RDONLY);
+    assert(this->file_fp != nullptr);
     this->init_problem_data_structs();
 }
 

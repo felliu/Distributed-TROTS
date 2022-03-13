@@ -3,7 +3,7 @@
 #include <cmath>
 #include <memory>
 #include <numeric>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 #include <matio.h>
@@ -315,15 +315,16 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
     if (this->function_type() != FunctionType::Mean) {
         int nnz = this->matrix_ref->get_nnz();
         const int* col_inds = this->matrix_ref->get_col_inds();
-        std::set<int> non_zero_cols;
+        std::unordered_set<int> non_zero_cols;
         for (int i = 0; i < nnz; ++i) {
             non_zero_cols.insert(col_inds[i]);
         }
-        non_zeros.reserve(non_zeros.size());
+        non_zeros.reserve(non_zero_cols.size());
         //Convert to vector before returning
         std::copy(non_zero_cols.cbegin(), non_zero_cols.cend(), std::back_inserter(non_zeros));
+    }
 
-    } else {
+    else {
         //The gradient is just the "average vector" so find the nonzeros there
         for (int i = 0; i < this->mean_vec_ref->size(); ++i) {
             double entry = (*this->mean_vec_ref)[i];
@@ -332,6 +333,9 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
             }
         }
     }
+
+    std::sort(non_zeros.begin(), non_zeros.end());
+
     return non_zeros;
 }
 
