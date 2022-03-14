@@ -19,11 +19,11 @@ public:
     bool is_constraint() const noexcept { return this->is_cons; }
     bool is_active() const noexcept { return this->active; }
     bool is_minimisation() const noexcept { return this->minimise; }
-    double calc_value(const double* x) const;
+    double calc_value(const double* x, bool cached_dose=false) const;
     double get_weight() const noexcept { return this->weight; }
     double get_rhs() const noexcept { return this->rhs; }
-    void calc_gradient(const double* x, double* grad) const;
-    std::vector<double> calc_sparse_grad(const double* x) const;
+    void calc_gradient(const double* x, double* grad, bool cached_dose=false) const;
+    std::vector<double> calc_sparse_grad(const double* x, bool cached_dose=false) const;
     //Returns the indexes of the non-zero elements in the gradient of the entry.
     FunctionType function_type() const noexcept { return this->type; }
     std::string get_roi_name() const { return this->roi_name; }
@@ -34,12 +34,12 @@ private:
     double calc_max(const double* x) const;
     double calc_min(const double* x) const;
     double calc_mean(const double* x) const;
-    double calc_LTCP(const double* x) const;
-    double calc_gEUD(const double* x) const;
-
-    double quadratic_penalty_min(const double* x) const;
-    double quadratic_penalty_max(const double* x) const;
+    double calc_LTCP(const double* x, bool cached_dose=false) const;
+    double calc_gEUD(const double* x, bool cached_dose=false) const;
+    double quadratic_penalty_min(const double* x, bool cached_dose=false) const;
+    double quadratic_penalty_max(const double* x, bool cached_dose=false) const;
     double quadratic_penalty_mean(const double* x) const;
+
     void mean_grad(const double* x, double* grad) const;
     void LTCP_grad(const double* x, double* grad, bool cached_dose) const;
     void gEUD_grad(const double* x, double* grad, bool cached_dose) const;

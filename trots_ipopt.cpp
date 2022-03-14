@@ -131,7 +131,7 @@ bool TROTS_ipopt::eval_jac_g(int n, const double* x, bool new_x,
         return true;
     }
 
-    this->problem->calc_jacobian_vals(x, vals);
+    this->problem->calc_jacobian_vals(x, vals, new_x);
     return true;
 }
 

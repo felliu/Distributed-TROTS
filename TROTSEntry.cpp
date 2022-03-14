@@ -150,9 +150,9 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
         || (this->type != FunctionType::Mean && this->mean_vec_ref == nullptr));
 }
 
-std::vector<double> TROTSEntry::calc_sparse_grad(const double* x) const {
+std::vector<double> TROTSEntry::calc_sparse_grad(const double* x, bool cached_dose) const {
     std::vector<double> dense_grad(this->num_vars);
-    this->calc_gradient(x, &dense_grad[0]);
+    this->calc_gradient(x, &dense_grad[0], cached_dose);
     std::vector<double> sparse_grad;
     sparse_grad.reserve(this->grad_nonzero_idxs.size());
     for (int idx : this->grad_nonzero_idxs) {
@@ -162,26 +162,26 @@ std::vector<double> TROTSEntry::calc_sparse_grad(const double* x) const {
     return sparse_grad;
 }
 
-double TROTSEntry::calc_value(const double* x) const {
+double TROTSEntry::calc_value(const double* x, bool cached_dose) const {
     double val = 0.0;
     switch (this->type) {
         case FunctionType::Quadratic:
             val = this->calc_quadratic(x);
             break;
         case FunctionType::Max:
-            val = this->quadratic_penalty_max(x);
+            val = this->quadratic_penalty_max(x, cached_dose);
             break;
         case FunctionType::Min:
-            val = this->quadratic_penalty_min(x);
+            val = this->quadratic_penalty_min(x, cached_dose);
             break;
         case FunctionType::Mean:
             val = this->calc_mean(x);
             break;
         case FunctionType::gEUD:
-            val = this->calc_gEUD(x);
+            val = this->calc_gEUD(x, cached_dose);
             break;
         case FunctionType::LTCP:
-            val = this->calc_LTCP(x);
+            val = this->calc_LTCP(x, cached_dose);
             break;
         default:
             break;
@@ -221,8 +221,9 @@ double TROTSEntry::calc_mean(const double* x) const {
     return cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
 }
 
-double TROTSEntry::calc_LTCP(const double* x) const {
-    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
+double TROTSEntry::calc_LTCP(const double* x, bool cached_dose) const {
+    if (!cached_dose)
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
 
     const double prescribed_dose = this->func_params[0];
     const double alpha = this->func_params[1];
@@ -237,8 +238,10 @@ double TROTSEntry::calc_LTCP(const double* x) const {
     return val;
 }
 
-double TROTSEntry::calc_gEUD(const double* x) const {
-    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
+double TROTSEntry::calc_gEUD(const double* x, bool cached_dose) const {
+    if (!cached_dose)
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
+
     const auto num_voxels = this->y_vec.size();
 
     const double a = this->func_params[0];
@@ -258,8 +261,10 @@ double TROTSEntry::quadratic_penalty_mean(const double* x) const {
     return diff * diff;
 }
 
-double TROTSEntry::quadratic_penalty_min(const double* x) const {
-    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
+double TROTSEntry::quadratic_penalty_min(const double* x, bool cached_dose) const {
+    if (!cached_dose)
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
+
 
     double sq_diff = 0.0;
     const size_t num_voxels = this->y_vec.size();
@@ -271,8 +276,9 @@ double TROTSEntry::quadratic_penalty_min(const double* x) const {
     return sq_diff / static_cast<double>(num_voxels);
 }
 
-double TROTSEntry::quadratic_penalty_max(const double* x) const {
-    this->matrix_ref->vec_mul(x, &this->y_vec[0]);
+double TROTSEntry::quadratic_penalty_max(const double* x, bool cached_dose) const {
+    if (!cached_dose)
+        this->matrix_ref->vec_mul(x, &this->y_vec[0]);
 
     double sq_diff = 0.0;
     const size_t num_voxels = this->y_vec.size();
@@ -284,25 +290,25 @@ double TROTSEntry::quadratic_penalty_max(const double* x) const {
     return sq_diff / static_cast<double>(num_voxels);
 }
 
-void TROTSEntry::calc_gradient(const double* x, double* grad) const {
+void TROTSEntry::calc_gradient(const double* x, double* grad, bool cached_dose) const {
     switch (this->type) {
         case FunctionType::Quadratic:
             quad_grad(x, grad);
             break;
         case FunctionType::Max:
-            quad_max_grad(x, grad, false);
+            quad_max_grad(x, grad, cached_dose);
             break;
         case FunctionType::Min:
-            quad_min_grad(x, grad, false);
+            quad_min_grad(x, grad, cached_dose);
             break;
         case FunctionType::Mean:
             mean_grad(x, grad);
             break;
         case FunctionType::gEUD:
-            gEUD_grad(x, grad, false);
+            gEUD_grad(x, grad, cached_dose);
             break;
         case FunctionType::LTCP:
-            LTCP_grad(x, grad, false);
+            LTCP_grad(x, grad, cached_dose);
             break;
         default:
             //std::fill(grad, grad + this->num_vars, 0.0);

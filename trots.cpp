@@ -189,10 +189,11 @@ void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
         }
     }
 }
-void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals) const {
+void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals, bool cached_dose) const {
     int idx = 0;
     for (const auto& constraint_entry : constraint_entries) {
-        std::vector<double> grad_vals = constraint_entry.calc_sparse_grad(x);
+        std::vector<double> grad_vals =
+            constraint_entry.calc_sparse_grad(x, cached_dose);
         for (double v : grad_vals) {
             jacobian_vals[idx] = v;
             ++idx;
@@ -200,9 +201,9 @@ void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals) co
     }
 }
 
-void TROTSProblem::calc_constraints(const double* x, double* cons_vals) const {
+void TROTSProblem::calc_constraints(const double* x, double* cons_vals, bool cached_dose) const {
     for (int i = 0; i < this->constraint_entries.size(); ++i) {
-        cons_vals[i] = this->constraint_entries[i].calc_value(x);
+        cons_vals[i] = this->constraint_entries[i].calc_value(x, cached_dose);
     }
 }
 
