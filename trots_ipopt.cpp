@@ -113,7 +113,6 @@ bool TROTS_ipopt::eval_g(int n, const double* x, bool new_x, int m, double* g) {
     return true;
 }
 
-
 bool TROTS_ipopt::eval_jac_g(int n, const double* x, bool new_x,
                              int m, int nnz_jac, int* irow, int* icol, double* vals) {
 

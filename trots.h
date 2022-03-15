@@ -2,35 +2,17 @@
 #define TROTS_H
 
 #include <cassert>
-#include <filesystem>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
 
-#include <matio.h>
 #include <mkl.h>
 
+#include "trots_matfile_data.h"
 #include "SparseMat.h"
 #include "TROTSEntry.h"
 
-struct TROTSMatFileData {
-public:
-    TROTSMatFileData(const std::filesystem::path& file_path);
-
-    TROTSMatFileData(const TROTSMatFileData& other) = delete;
-    TROTSMatFileData& operator=(const TROTSMatFileData& rhs) = delete;
-
-    TROTSMatFileData(TROTSMatFileData&& data);
-    ~TROTSMatFileData();
-
-    mat_t* file_fp;
-    matvar_t* problem_struct;
-    matvar_t* data_struct;
-    matvar_t* matrix_struct;
-private:
-    void init_problem_data_structs();
-};
 
 class TROTSProblem {
 public:

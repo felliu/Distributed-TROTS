@@ -37,6 +37,8 @@ add_executable(trots_test
     TROTSEntry.h
     trots_ipopt.h
     trots_ipopt.cpp
+    trots_matfile_data.cpp
+    trots_matfile_data.h
     SparseMat.h
     OptimizationProblem.h
     util.h

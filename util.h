@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <string>
+#include <vector>
 #include <tuple>
 
 struct matvar_t;
