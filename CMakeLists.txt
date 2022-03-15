@@ -6,7 +6,9 @@ set(MKL_INTERFACE lp64)
 
 find_package(MKL CONFIG)
 
-#In case we cannot find MKL through the cmake config, try to find it manually in LD_LIBRARY_PATH
+#In case we cannot find MKL through the cmake config
+#assume we still can find it on the linker's search path and just
+#specify link flags manually.
 if (NOT ${MKL_FOUND})
     if (DEFINED ENV{MKLROOT})
         set(MKL_LINK_FLAGS
@@ -25,37 +27,7 @@ endif()
 
 add_subdirectory(external/matio)
 
-find_library(IPOPT
-    ipopt
-    HINTS ENV LD_LIBRARY_PATH
-    REQUIRED)
+add_subdirectory(trots_lib)
 
-add_executable(trots_test
-    trots.cpp
-    trots.h
-    TROTSEntry.cpp
-    TROTSEntry.h
-    trots_ipopt.h
-    trots_ipopt.cpp
-    trots_matfile_data.cpp
-    trots_matfile_data.h
-    SparseMat.h
-    OptimizationProblem.h
-    util.h
-    main.cpp)
-
-target_compile_features(trots_test PUBLIC cxx_std_17)
-set_target_properties(trots_test
-    PROPERTIES
-        CXX_EXTENSIONS off)
-
-target_compile_options(trots_test PUBLIC ${MKL_COMPILE_OPTIONS})
-target_compile_definitions(trots_test PUBLIC MKL_LP64)
-if (${USE_MKL})
-    target_compile_definitions(trots_test PUBLIC USE_MKL)
-endif()
-target_include_directories(trots_test PUBLIC ${MKL_INCLUDE_DIRS})
-target_link_libraries(trots_test PUBLIC matio::matio ${MKL_LINK_FLAGS} ${IPOPT})
-
-
+add_subdirectory(ipopt_driver)
 
