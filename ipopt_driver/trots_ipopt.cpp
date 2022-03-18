@@ -3,6 +3,8 @@
 
 #include "coin-or/IpIpoptApplication.hpp"
 
+static int max_iter = 20000;
+
 TROTS_ipopt::TROTS_ipopt(TROTSProblem&& problem) {
     this->problem = std::make_unique<TROTSProblem>(std::move(problem));
 }
@@ -154,14 +156,19 @@ void TROTS_ipopt::finalize_solution(Ipopt::SolverReturn status, int n,
 }
 
 int ipopt_main_func(int argc, char* argv[]) {
-    if (argc != 2)  {
+    if (argc < 2 || argc > 3)  {
         std::cerr << "Incorrect number of arguments\n";
         std::cerr << "Usage: ./program <mat_file_path>\n";
+        std::cerr << "\t./program <mat_file_path> <max_iters>\n";
         return -1;
     }
 
     std::string path_str{argv[1]};
     std::filesystem::path path{path_str};
+
+    if (argc == 3) {
+        max_iter = std::atoi(argv[2]);
+    }
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
     Ipopt::SmartPtr<Ipopt::TNLP> trots_nlp = new TROTS_ipopt(std::move(trots_problem));
@@ -170,7 +177,7 @@ int ipopt_main_func(int argc, char* argv[]) {
     app->Options()->SetStringValue("hessian_approximation", "limited-memory");
     app->Options()->SetStringValue("mu_strategy", "adaptive");
     app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
-    app->Options()->SetIntegerValue("max_iter", 20000);
+    app->Options()->SetIntegerValue("max_iter", max_iter);
     app->Options()->SetNumericValue("tol", 1e-9);
     //app->Options()->SetStringValue("derivative_test", "first-order");
     //app->Options()->SetNumericValue("derivative_test_perturbation", 1e-12);
