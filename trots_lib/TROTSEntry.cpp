@@ -104,6 +104,9 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     if (this->type == FunctionType::Mean) {
         this->matrix_ref = nullptr;
         this->mean_vec_ref = &std::get<std::vector<double>>(mat_refs[this->id - 1]);
+        if (!this->is_constraint()) {
+            this->rhs = 0;
+        }
     } else {
         this->mean_vec_ref = nullptr;
         this->matrix_ref = std::get<std::unique_ptr<SparseMatrix<double>>>(mat_refs[this->id - 1]).get();
@@ -175,7 +178,8 @@ double TROTSEntry::calc_value(const double* x, bool cached_dose) const {
             val = this->quadratic_penalty_min(x, cached_dose);
             break;
         case FunctionType::Mean:
-            val = this->calc_mean(x);
+            //val = this->calc_mean(x);
+            val = this->quadratic_penalty_mean(x);
             break;
         case FunctionType::gEUD:
             val = this->calc_gEUD(x, cached_dose);
@@ -302,7 +306,8 @@ void TROTSEntry::calc_gradient(const double* x, double* grad, bool cached_dose) 
             quad_min_grad(x, grad, cached_dose);
             break;
         case FunctionType::Mean:
-            mean_grad(x, grad);
+            //mean_grad(x, grad);
+            quad_mean_grad(x, grad);
             break;
         case FunctionType::gEUD:
             gEUD_grad(x, grad, cached_dose);
@@ -347,6 +352,15 @@ std::vector<int> TROTSEntry::calc_grad_nonzero_idxs() const {
 
 void TROTSEntry::mean_grad(const double* x, double* grad) const {
     std::copy(this->mean_vec_ref->cbegin(), this->mean_vec_ref->cend(), grad);
+}
+
+void TROTSEntry::quad_mean_grad(const double* x, double* grad) const {
+    const double mean = cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
+    for (int i = 0; i < num_vars; ++i) {
+        const double tmp = this->minimise ? std::min(mean - this->rhs, 0.0) :
+                                            std::max(mean - this->rhs, 0.0);
+        grad[i] = 2.0 * (*this->mean_vec_ref)[i] * tmp;
+    }
 }
 
 void TROTSEntry::LTCP_grad(const double* x, double* grad, bool cached_dose) const {

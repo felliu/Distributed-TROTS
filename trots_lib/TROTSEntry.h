@@ -41,6 +41,7 @@ private:
     double quadratic_penalty_mean(const double* x) const;
 
     void mean_grad(const double* x, double* grad) const;
+    void quad_mean_grad(const double* x, double* grad) const;
     void LTCP_grad(const double* x, double* grad, bool cached_dose) const;
     void gEUD_grad(const double* x, double* grad, bool cached_dose) const;
     void quad_min_grad(const double* x, double* grad, bool cached_dose) const;

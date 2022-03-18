@@ -83,14 +83,13 @@ TROTSProblem::TROTSProblem(TROTSMatFileData&& trots_data_) :
         }
 
         if (entry.is_constraint()) {
-            /*if (entry.function_type() == FunctionType::Min)
+            /*if (entry.function_type() != FunctionType::Mean)
                 continue;*/
             this->constraint_entries.push_back(entry);
             auto vec = entry.get_grad_nonzero_idxs();
             this->nnz_jac_cons += vec.size();
         } else {
-            /*if (entry.function_type() != FunctionType::LTCP
-                && entry.function_type() != FunctionType::Mean)
+            /*if (entry.function_type() != FunctionType::Mean)
                 continue;*/
             this->objective_entries.push_back(entry);
         }
