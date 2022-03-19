@@ -178,8 +178,8 @@ double TROTSEntry::calc_value(const double* x, bool cached_dose) const {
             val = this->quadratic_penalty_min(x, cached_dose);
             break;
         case FunctionType::Mean:
-            //val = this->calc_mean(x);
-            val = this->quadratic_penalty_mean(x);
+            val = this->calc_mean(x);
+            //val = this->quadratic_penalty_mean(x);
             break;
         case FunctionType::gEUD:
             val = this->calc_gEUD(x, cached_dose);
@@ -260,8 +260,8 @@ double TROTSEntry::calc_gEUD(const double* x, bool cached_dose) const {
 double TROTSEntry::quadratic_penalty_mean(const double* x) const {
     const double mean = cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
     const double diff = this->minimise ?
-                            std::min(mean - this->rhs, 0.0) :
-                            std::max(mean - this->rhs, 0.0);
+                            std::max(mean - this->rhs, 0.0) :
+                            std::min(mean - this->rhs, 0.0);
     return diff * diff;
 }
 
@@ -357,8 +357,8 @@ void TROTSEntry::mean_grad(const double* x, double* grad) const {
 void TROTSEntry::quad_mean_grad(const double* x, double* grad) const {
     const double mean = cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
     for (int i = 0; i < num_vars; ++i) {
-        const double tmp = this->minimise ? std::min(mean - this->rhs, 0.0) :
-                                            std::max(mean - this->rhs, 0.0);
+        const double tmp = this->minimise ? std::max(mean - this->rhs, 0.0) :
+                                            std::min(mean - this->rhs, 0.0);
         grad[i] = 2.0 * (*this->mean_vec_ref)[i] * tmp;
     }
 }

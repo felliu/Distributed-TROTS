@@ -149,7 +149,11 @@ void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
     for (const auto& entry : this->objective_entries) {
         entry.calc_gradient(x, &grad_tmp[0]);
         for (int i = 0; i < grad_tmp.size(); ++i) {
-            y[i] += entry.get_weight() * grad_tmp[i];
+            double weight = entry.get_weight();
+            /*if (entry.function_type() == FunctionType::Mean) {
+                weight *= entry.get_weight();
+            }*/
+            y[i] += weight * grad_tmp[i];
         }
     }
 }
