@@ -8,6 +8,8 @@ find_package(MPI REQUIRED)
 
 add_executable(ipopt_mpi_main
     main.cpp
+    data_distribution.h
+    data_distribution.cpp
 )
 
 target_compile_features(ipopt_mpi_main PUBLIC cxx_std_17)

@@ -31,3 +31,6 @@ add_subdirectory(trots_lib)
 add_subdirectory(ipopt_driver)
 add_subdirectory(test)
 
+if (${USE_MPI})
+    add_subdirectory(ipopt_mpi_driver)
+endif()
