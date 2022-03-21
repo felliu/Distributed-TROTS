@@ -136,9 +136,19 @@ void TROTSProblem::read_dose_matrices() {
 
 double TROTSProblem::calc_objective(const double* x) const {
     double sum = 0.0;
+#pragma omp parallel
+{
+#pragma omp single
+{
     for (const auto& entry : this->objective_entries) {
-        sum += entry.get_weight() * entry.calc_value(x);
+        double value;
+        #pragma omp task
+        {value = entry.calc_value(x);}
+        #pragma omp atomic
+        {sum += entry.get_weight() * value;}
     }
+}
+}
     return sum;
 }
 
@@ -170,9 +180,16 @@ void TROTSProblem::calc_jacobian_vals(const double* x, double* jacobian_vals, bo
 }
 
 void TROTSProblem::calc_constraints(const double* x, double* cons_vals, bool cached_dose) const {
+#pragma omp parallel
+{
+#pragma omp single
+{
     for (int i = 0; i < this->constraint_entries.size(); ++i) {
-        cons_vals[i] = this->constraint_entries[i].calc_value(x, cached_dose);
+        #pragma omp task
+        {cons_vals[i] = this->constraint_entries[i].calc_value(x, cached_dose);}
     }
+}
+}
 }
 
 
