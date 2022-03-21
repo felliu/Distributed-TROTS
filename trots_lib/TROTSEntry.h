@@ -23,6 +23,14 @@ public:
     double get_weight() const noexcept { return this->weight; }
     double get_rhs() const noexcept { return this->rhs; }
     void calc_gradient(const double* x, double* grad, bool cached_dose=false) const;
+    int get_nnz() const {
+        assert (this->matrix_ref != nullptr || this->mean_vec_ref != nullptr);
+        if (this->matrix_ref != nullptr) {
+            return this->matrix_ref->get_nnz();
+        } else {
+            return static_cast<int>(this->mean_vec_ref->size());
+        }
+    }
     std::vector<double> calc_sparse_grad(const double* x, bool cached_dose=false) const;
     //Returns the indexes of the non-zero elements in the gradient of the entry.
     FunctionType function_type() const noexcept { return this->type; }
