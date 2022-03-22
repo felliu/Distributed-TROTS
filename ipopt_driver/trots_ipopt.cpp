@@ -149,7 +149,7 @@ void TROTS_ipopt::finalize_solution(Ipopt::SolverReturn status, int n,
         x_vec.push_back(x[i]);
     }
 
-    dump_vector_to_file(x_vec, "hn_01_ipopt_quad_mean.bin");
+    dump_vector_to_file(x_vec, "hn_01_ipopt_serial_mkl.bin");
 
     std::cout << "IPOPT finalize_solution called\n";
     std::cout << "Exit status: " << status << "\n";
@@ -179,7 +179,8 @@ int ipopt_main_func(int argc, char* argv[]) {
     app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
     app->Options()->SetIntegerValue("max_iter", max_iter);
     app->Options()->SetNumericValue("tol", 1e-9);
-    app->Options()->SetStringValue("derivative_test", "first-order");
+    app->Options()->SetStringValue("print_timing_statistics", "yes");
+    //app->Options()->SetStringValue("derivative_test", "first-order");
     //app->Options()->SetNumericValue("derivative_test_perturbation", 1e-12);
 
     Ipopt::ApplicationReturnStatus status;
