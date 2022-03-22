@@ -16,6 +16,7 @@
 
 class TROTSProblem {
 public:
+    TROTSProblem() = default;
     TROTSProblem(TROTSMatFileData&& trots_data);
 
     //TODO: Make these private

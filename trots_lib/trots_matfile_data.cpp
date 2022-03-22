@@ -24,6 +24,27 @@ TROTSMatFileData::TROTSMatFileData(TROTSMatFileData&& other) {
     other.matrix_struct = NULL;
 }
 
+TROTSMatFileData& TROTSMatFileData::operator=(TROTSMatFileData&& rhs) {
+    if (this != &rhs) {
+        Mat_Close(this->file_fp);
+        Mat_VarFree(this->data_struct);
+        Mat_VarFree(this->problem_struct);
+        Mat_VarFree(this->matrix_struct);
+
+        this->file_fp = rhs.file_fp;
+        this->data_struct = rhs.data_struct;
+        this->problem_struct = rhs.problem_struct;
+        this->matrix_struct = rhs.matrix_struct;
+
+        rhs.file_fp = nullptr;
+        rhs.data_struct = nullptr;
+        rhs.problem_struct = nullptr;
+        rhs.matrix_struct = nullptr;
+    }
+
+    return *this;
+}
+
 TROTSMatFileData::~TROTSMatFileData() {
     Mat_VarFree(this->data_struct);
     Mat_VarFree(this->problem_struct);
