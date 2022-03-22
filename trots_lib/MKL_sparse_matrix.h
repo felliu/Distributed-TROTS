@@ -206,6 +206,15 @@ void MKL_sparse_matrix<T>::init_mkl_handle() {
                                          this->indices, this->data);
         assert(check_MKL_status(status));
     }
+    status = mkl_sparse_set_mv_hint(this->mkl_handle,
+                                    SPARSE_OPERATION_NON_TRANSPOSE,
+                                    desc, 3000);
+    assert(check_MKL_status(status));
+    status = mkl_sparse_set_mv_hint(this->mkl_handle,
+                                    SPARSE_OPERATION_TRANSPOSE,
+                                    desc, 3000);
+    assert(check_MKL_status(status));
+    status = mkl_sparse_optimize(this->mkl_handle);
 
     assert(check_MKL_status(status));
 }
