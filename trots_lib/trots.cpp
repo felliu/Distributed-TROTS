@@ -134,20 +134,20 @@ void TROTSProblem::read_dose_matrices() {
 }
 
 
-double TROTSProblem::calc_objective(const double* x) const {
+double TROTSProblem::calc_objective(const double* x, bool cached_dose) const {
     double sum = 0.0;
     for (const auto& entry : this->objective_entries) {
-        sum += entry.get_weight() * entry.calc_value(x);
+        sum += entry.get_weight() * entry.calc_value(x, cached_dose);
     }
     return sum;
 }
 
-void TROTSProblem::calc_obj_gradient(const double* x, double* y) const {
+void TROTSProblem::calc_obj_gradient(const double* x, double* y, bool cached_dose) const {
     std::fill(y, y + this->num_vars, 0.0);
     std::vector<double> grad_tmp(this->num_vars);
 
     for (const auto& entry : this->objective_entries) {
-        entry.calc_gradient(x, &grad_tmp[0]);
+        entry.calc_gradient(x, &grad_tmp[0], cached_dose);
         for (int i = 0; i < grad_tmp.size(); ++i) {
             double weight = entry.get_weight();
             /*if (entry.function_type() == FunctionType::Mean) {
