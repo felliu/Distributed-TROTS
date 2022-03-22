@@ -104,9 +104,9 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     if (this->type == FunctionType::Mean) {
         this->matrix_ref = nullptr;
         this->mean_vec_ref = &std::get<std::vector<double>>(mat_refs[this->id - 1]);
-        if (!this->is_constraint()) {
+        /*if (!this->is_constraint()) {
             this->rhs = 0;
-        }
+        }*/
     } else {
         this->mean_vec_ref = nullptr;
         this->matrix_ref = std::get<std::unique_ptr<SparseMatrix<double>>>(mat_refs[this->id - 1]).get();
@@ -306,8 +306,8 @@ void TROTSEntry::calc_gradient(const double* x, double* grad, bool cached_dose) 
             quad_min_grad(x, grad, cached_dose);
             break;
         case FunctionType::Mean:
-            //mean_grad(x, grad);
-            quad_mean_grad(x, grad);
+            mean_grad(x, grad);
+            //quad_mean_grad(x, grad);
             break;
         case FunctionType::gEUD:
             gEUD_grad(x, grad, cached_dose);
