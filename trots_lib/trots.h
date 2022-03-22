@@ -26,8 +26,8 @@ public:
     int get_num_constraints() const noexcept {
         return this->constraint_entries.size();
     }
-    double calc_objective(const double* x) const;
-    void calc_obj_gradient(const double* x, double* y) const;
+    double calc_objective(const double* x, bool cached_dose=false) const;
+    void calc_obj_gradient(const double* x, double* y, bool cached_dose=false) const;
     void calc_constraints(const double* x, double* cons_vals, bool cached_dose=false) const;
     void calc_jacobian_vals(const double* x, double* jacobian_vals, bool cached_dose=false) const;
 
