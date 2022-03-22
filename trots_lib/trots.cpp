@@ -136,19 +136,11 @@ void TROTSProblem::read_dose_matrices() {
 
 double TROTSProblem::calc_objective(const double* x) const {
     double sum = 0.0;
-#pragma omp parallel
-{
-#pragma omp single
-{
-    for (const auto& entry : this->objective_entries) {
-        double value;
-        #pragma omp task
-        {value = entry.calc_value(x);}
-        #pragma omp atomic
-        {sum += entry.get_weight() * value;}
+    #pragma omp parallel for reduction(+:sum)
+    for (int i = 0; i < this->objective_entries.size(); ++i) {
+        sum += this->objective_entries[i].get_weight() *
+               this->objective_entries[i].calc_value(x);
     }
-}
-}
     return sum;
 }
 
