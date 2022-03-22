@@ -28,14 +28,15 @@ namespace {
 
 int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
-    int rank = 0;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int world_rank = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     int num_ranks = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
     std::vector<int> obj_ranks;
     std::vector<int> cons_ranks;
-    if (rank == 0) {
+    TROTSProblem trots_problem;
+    if (world_rank == 0) {
         if (argc < 2 || argc > 3) {
             std::cerr << "Usage: ./program <mat_file>\n"
                       << "\t./program <mat_file> <max_iters>\n";
@@ -44,17 +45,12 @@ int main(int argc, char* argv[]) {
         std::string path_str{argv[1]};
         std::filesystem::path path{path_str};
 
-        TROTSProblem trots_problem{TROTSMatFileData{path}};
+        trots_problem = std::move(TROTSProblem{TROTSMatFileData{path}});
 
-        //Get the distribution of ranks between ranks to calculate terms of the objective
+        //Get the distribution between ranks to calculate terms of the objective
         //and constraints
         std::tie(obj_ranks, cons_ranks) = get_obj_cons_rank_idxs(trots_problem);
 
-        std::vector<std::vector<int>> rank_distrib_obj =
-            get_rank_distribution(trots_problem.objective_entries, obj_ranks.size());
-
-        std::vector<std::vector<int>> rank_distrib_cons =
-            get_rank_distribution(trots_problem.constraint_entries, cons_ranks.size());
 
         //Create the communicators:
         //Broadcast the rank distribution info to all other ranks
@@ -77,6 +73,24 @@ int main(int argc, char* argv[]) {
     }
 
     std::tie(obj_ranks_comm, cons_ranks_comm) = split_obj_cons_comm(obj_ranks, cons_ranks);
+
+    if (world_rank == 0) {
+        std::vector<std::vector<int>> rank_distrib_obj =
+            get_rank_distribution(trots_problem.objective_entries, obj_ranks.size());
+
+        std::vector<std::vector<int>> rank_distrib_cons =
+            get_rank_distribution(trots_problem.constraint_entries, cons_ranks.size());
+
+        //Check that rank 0 is still rank 0 in the other comms:
+        int obj_comm_rank = 1;
+        MPI_Comm_rank(obj_ranks_comm, &obj_comm_rank);
+        int cons_comm_rank = 1;
+        MPI_Comm_rank(cons_ranks_comm, &cons_comm_rank);
+
+        assert(obj_comm_rank != 0);
+        assert(cons_comm_rank == 0);
+    }
+
     MPI_Finalize();
     return 0;
 }

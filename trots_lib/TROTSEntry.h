@@ -72,9 +72,7 @@ private:
     FunctionType type;
     double rhs;
     double weight;
-    //Multiple objectives / constraints can use the same dose deposition matrix. To avoid storing duplicates,
-    //all the matrices are stored in TROTSProblem, and the TROTSEntries each have a reference to their matrix instead.
-    //const std::variant<MKL_sparse_matrix<double>, std::vector<double>>* matrix_ref;
+
     double c; //Scalar factor used in quadratic cost functions.
     //const MKL_sparse_matrix<double>* matrix_ref;
     const SparseMatrix<double>* matrix_ref;
