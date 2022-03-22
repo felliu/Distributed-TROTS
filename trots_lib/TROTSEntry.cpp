@@ -306,8 +306,8 @@ void TROTSEntry::calc_gradient(const double* x, double* grad, bool cached_dose) 
             quad_min_grad(x, grad, cached_dose);
             break;
         case FunctionType::Mean:
-            //mean_grad(x, grad);
-            quad_mean_grad(x, grad);
+            mean_grad(x, grad);
+            //quad_mean_grad(x, grad);
             break;
         case FunctionType::gEUD:
             gEUD_grad(x, grad, cached_dose);
