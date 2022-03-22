@@ -28,6 +28,6 @@ endif()
 add_subdirectory(external/matio)
 add_subdirectory(trots_lib)
 
-#add_subdirectory(ipopt_driver)
-add_subdirectory(test)
+add_subdirectory(ipopt_driver)
+#add_subdirectory(test)
 
