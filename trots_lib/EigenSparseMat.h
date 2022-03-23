@@ -43,6 +43,8 @@ public:
     int get_cols() const override { return this->mat.cols(); }
     int get_nnz() const override { return this->mat.nonZeros(); }
     const int* get_col_inds() const override { return this->mat.innerIndexPtr(); }
+    const int* get_row_ptrs() const override { return this->mat.outerIndexPtr(); }
+    const T* get_data_ptr() const override { return this->mat.valuePtr(); }
 
     void vec_mul(const T* x, T* y) const override;
     void vec_mul_transpose(const T* x, T* y) const override;

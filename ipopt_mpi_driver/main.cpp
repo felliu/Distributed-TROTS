@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <filesystem>
+#include <unordered_set>
 
 #include "data_distribution.h"
 #include "trots.h"
@@ -89,6 +90,18 @@ int main(int argc, char* argv[]) {
 
         assert(obj_comm_rank != 0);
         assert(cons_comm_rank == 0);
+
+        //Step 1: post the sends for the data matrices to the correct ranks.
+        //Figure out which matrix goes where
+        std::vector<std::unordered_set<int>> data_id_buckets_obj_ranks(rank_distrib_obj.size());
+        std::vector<std::unordered_set<int>> data_id_buckets_cons_ranks(rank_distrib_cons.size());
+        for (int i = 0; i < rank_distrib_obj.size(); ++i) {
+            const std::vector<int>& entry_idxs = rank_distrib_obj[i];
+            for (const int entry_idx : entry_idxs) {
+
+            }
+        }
+
     }
 
     MPI_Finalize();

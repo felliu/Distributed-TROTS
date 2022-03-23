@@ -80,6 +80,14 @@ public:
         return this->indices;
     }
 
+    const int* get_row_ptrs() const noexcept override {
+        return this->indptrs;
+    }
+
+    const T* get_data_ptr() const noexcept override {
+        return this->data;
+    }
+
     friend void swap(MKL_sparse_matrix& m1, MKL_sparse_matrix& m2) {
         std::swap(m1.data, m2.data);
         std::swap(m1.indices, m2.indices);

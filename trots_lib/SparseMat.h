@@ -11,6 +11,8 @@ struct SparseMatrix {
     virtual int get_cols() const = 0;
     virtual int get_nnz() const = 0;
     virtual const int* get_col_inds() const = 0;
+    virtual const int* get_row_ptrs() const = 0;
+    virtual const T* get_data_ptr() const = 0;
 
     virtual ~SparseMatrix() = default;
 };
