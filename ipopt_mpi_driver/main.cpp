@@ -98,7 +98,15 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < rank_distrib_obj.size(); ++i) {
             const std::vector<int>& entry_idxs = rank_distrib_obj[i];
             for (const int entry_idx : entry_idxs) {
-
+                const int data_id = trots_problem.objective_entries[entry_idx].get_id();
+                data_id_buckets_obj_ranks[i].insert(data_id);
+            }
+        }
+        for (int i = 0; i < rank_distrib_cons.size(); ++i) {
+            const std::vector<int>& entry_idxs = rank_distrib_cons[i];
+            for (const int entry_idx : entry_idxs) {
+                const int data_id = trots_problem.constraint_entries[entry_idx].get_id();
+                data_id_buckets_cons_ranks[i].insert(data_id);
             }
         }
 

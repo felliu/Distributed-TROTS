@@ -22,6 +22,7 @@ public:
     double calc_value(const double* x, bool cached_dose=false) const;
     double get_weight() const noexcept { return this->weight; }
     double get_rhs() const noexcept { return this->rhs; }
+    int get_id() const noexcept { return this->id; }
     void calc_gradient(const double* x, double* grad, bool cached_dose=false) const;
     int get_nnz() const {
         assert (this->matrix_ref != nullptr || this->mean_vec_ref != nullptr);
