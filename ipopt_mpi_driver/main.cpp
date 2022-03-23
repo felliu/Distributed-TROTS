@@ -2,10 +2,7 @@
 
 #include <iostream>
 #include <filesystem>
-<<<<<<< HEAD
 #include <unordered_set>
-=======
->>>>>>> c68b32435f1d34ff87c68ee86b8b1eb27a365bbf
 
 #include "data_distribution.h"
 #include "trots.h"
