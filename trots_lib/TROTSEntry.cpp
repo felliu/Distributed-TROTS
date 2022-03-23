@@ -104,9 +104,9 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     if (this->type == FunctionType::Mean) {
         this->matrix_ref = nullptr;
         this->mean_vec_ref = &std::get<std::vector<double>>(mat_refs[this->id - 1]);
-        /*if (!this->is_constraint()) {
+        if (!this->is_constraint()) {
             this->rhs = 0;
-        }*/
+        }
     } else {
         this->mean_vec_ref = nullptr;
         this->matrix_ref = std::get<std::unique_ptr<SparseMatrix<double>>>(mat_refs[this->id - 1]).get();
