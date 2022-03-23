@@ -103,12 +103,12 @@ bool TROTS_ipopt::get_starting_point(
 }
 
 bool TROTS_ipopt::eval_f(int n, const double* x, bool new_x, double& obj_val) {
-    obj_val = this->problem->calc_objective(x, new_x);
+    obj_val = this->problem->calc_objective(x);
     return true;
 }
 
 bool TROTS_ipopt::eval_grad_f(int n, const double* x, bool new_x, double* grad_f) {
-    this->problem->calc_obj_gradient(x, grad_f, new_x);
+    this->problem->calc_obj_gradient(x, grad_f);
     return true;
 }
 
@@ -134,7 +134,7 @@ bool TROTS_ipopt::eval_jac_g(int n, const double* x, bool new_x,
         return true;
     }
 
-    this->problem->calc_jacobian_vals(x, vals, new_x);
+    this->problem->calc_jacobian_vals(x, vals);
     return true;
 }
 
