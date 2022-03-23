@@ -101,12 +101,12 @@ bool TROTS_ipopt::get_starting_point(
 }
 
 bool TROTS_ipopt::eval_f(int n, const double* x, bool new_x, double& obj_val) {
-    obj_val = this->problem->calc_objective(x);
+    obj_val = this->problem->calc_objective(x, new_x);
     return true;
 }
 
 bool TROTS_ipopt::eval_grad_f(int n, const double* x, bool new_x, double* grad_f) {
-    this->problem->calc_obj_gradient(x, grad_f);
+    this->problem->calc_obj_gradient(x, grad_f, new_x);
     return true;
 }
 
@@ -149,7 +149,11 @@ void TROTS_ipopt::finalize_solution(Ipopt::SolverReturn status, int n,
         x_vec.push_back(x[i]);
     }
 
+<<<<<<< HEAD
     dump_vector_to_file(x_vec, "hn_01_ipopt_pardiso_rs_desktop.bin");
+=======
+    dump_vector_to_file(x_vec, "hn_01_ipopt_serial_mkl.bin");
+>>>>>>> 816214d18fd03d12539b1bd96daae022afc3986b
 
     std::cout << "IPOPT finalize_solution called\n";
     std::cout << "Exit status: " << status << "\n";
@@ -179,6 +183,7 @@ int ipopt_main_func(int argc, char* argv[]) {
     app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
     app->Options()->SetIntegerValue("max_iter", max_iter);
     app->Options()->SetNumericValue("tol", 1e-9);
+    //app->Options()->SetStringValue("print_timing_statistics", "yes");
     //app->Options()->SetStringValue("derivative_test", "first-order");
     //app->Options()->SetNumericValue("derivative_test_perturbation", 1e-12);
 

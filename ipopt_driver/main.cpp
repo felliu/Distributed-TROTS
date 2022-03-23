@@ -78,7 +78,11 @@ void calc_jacobian_sparsity(const TROTSProblem& problem) {
 
 int main(int argc, char* argv[])
 {
+<<<<<<< HEAD
     mkl_set_num_threads(14);
+=======
+    mkl_set_num_threads(28);
+>>>>>>> 816214d18fd03d12539b1bd96daae022afc3986b
     ipopt_main_func(argc, argv);
     return 0;
     if (argc != 2)  {
