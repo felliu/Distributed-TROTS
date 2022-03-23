@@ -8,6 +8,7 @@ add_library(trots_lib STATIC
     SparseMat.h
     MKL_sparse_matrix.h
     EigenSparseMat.h
+    util.cpp
     util.h
 )
 

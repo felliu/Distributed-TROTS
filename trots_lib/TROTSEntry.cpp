@@ -15,31 +15,17 @@
 namespace {
     const char* func_type_names[] = {"Min", "Max", "Mean", "Quadratic", "gEUD", "LTCP", "DVH", "Chain"};
 
-    std::string get_name_str(const matvar_t* name_var) {
-        assert(name_var->rank == 2 && name_var->dims[0] == 1);
-        const size_t name_len = name_var->dims[1];
-        char null_terminated_buffer[name_len + 1];
-        std::memcpy(static_cast<void*>(&null_terminated_buffer[0]), name_var->data, name_len * sizeof(char));
-        null_terminated_buffer[name_len] = '\0';
-        return std::string(null_terminated_buffer);
-    }
 
-    FunctionType get_linear_function_type(int dataID, bool minimise, const std::string& roi_name, matvar_t* matrix_struct) {
+    /*FunctionType get_linear_function_type(int dataID, bool minimise, const std::string& roi_name, matvar_t* matrix_struct) {
         const int zero_indexed_dataID = dataID - 1;
         std::cerr << "Reading name field\n";
         //The times when the function type is mean, the data.matrix struct should have an entry at dataID with the name "<ROI_name> + (mean)"...
         matvar_t* matrix_entry_name_var = Mat_VarGetStructFieldByName(matrix_struct, "Name", zero_indexed_dataID);
         check_null(matrix_entry_name_var, "Failed to read name field of matrix entry\n.");
 
-        std::string matrix_entry_name = get_name_str(matrix_entry_name_var);
-        std::cerr << "Matrix name: " << matrix_entry_name << "\n";
-
-        auto n = matrix_entry_name.find("(mean)");
-        if (n != std::string::npos)
-            return FunctionType::Mean;
-
+        const bool is_mean =
         return minimise ? FunctionType::Max : FunctionType::Min;
-    }
+    }*/
 
     FunctionType get_nonlinear_function_type(int type_id) {
         assert(type_id >= 2);
@@ -64,6 +50,7 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     check_null(name_var, "Cannot find name variable in problem entry.");
     assert(name_var->class_type == MAT_C_CHAR);
     this->roi_name = get_name_str(name_var);
+    std::cerr << "Name: " << this->roi_name << "\n";
 
     //Matlab stores numeric values as doubles by default, which seems to be the type
     //used by TROTS as well even for integral values. Do some casting here to convert the data to
@@ -91,22 +78,30 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     check_null(objective_var, "Could not read Objective field from struct\n");
     this->rhs = *static_cast<double*>(objective_var->data);
 
+    //The RHS field shouldn't mean anything in particular for our use for objectives
+    if (!this->is_constraint())
+        this->rhs = 0;
+
     matvar_t* function_type = Mat_VarGetStructFieldByName(problem_struct_entry, "Type", 0);
     check_null(function_type, "Could not read the \"Type\" field from the problem struct\n");
     int TROTS_type = cast_from_double<int>(function_type);
     //An index of 1 means a "linear" function, which in reality can be one of three possibilities. Min, max and mean.
     //Determine which one it is.
-    if (TROTS_type == 1)
-        this->type = get_linear_function_type(this->id, this->minimise, this->roi_name, matrix_struct);
+    if (TROTS_type == 1) {
+        if (std::holds_alternative<std::vector<double>>(mat_refs[this->id - 1]))
+            this->type = FunctionType::Mean;
+        else {
+            this->type = this->minimise ? FunctionType::Max : FunctionType::Min;
+        }
+    }
     else
         this->type = get_nonlinear_function_type(TROTS_type);
+
+
 
     if (this->type == FunctionType::Mean) {
         this->matrix_ref = nullptr;
         this->mean_vec_ref = &std::get<std::vector<double>>(mat_refs[this->id - 1]);
-        if (!this->is_constraint()) {
-            this->rhs = 0;
-        }
     } else {
         this->mean_vec_ref = nullptr;
         this->matrix_ref = std::get<std::unique_ptr<SparseMatrix<double>>>(mat_refs[this->id - 1]).get();
@@ -115,6 +110,12 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     matvar_t* weight_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Weight", 0);
     check_null(weight_var, "Could not read the \"Weight\" field from the problem struct.\n");
     this->weight = *static_cast<double*>(weight_var->data);
+    //We use a square difference approximation:
+    //account for this when weighting objectives by squaring the weight too.
+    if (this->type == FunctionType::Min || this->type == FunctionType::Max)
+        this->weight = this->weight * this->weight;
+
+    std::cerr << "Weight: " << this->weight << "\n";
 
     matvar_t* parameters_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Parameters", 0);
     check_null(parameters_var, "Could not read the \"Parameters\" field from the problem struct.\n");

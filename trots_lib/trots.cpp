@@ -19,16 +19,39 @@ namespace {
     std::vector<double> get_mean_vector(matvar_t* matrix_entry) {
         matvar_t* matrix_data_var = Mat_VarGetStructFieldByName(matrix_entry, "A", 0);
         check_null(matrix_data_var, "Could not read matrix A from struct.\n");
-        assert(matrix_data_var->dims[0] == 1); //Should be a pure column vector
-        size_t num_elems = matrix_data_var->dims[1];
 
-        //The mean vectors are stored in single precision, for whatever reason.
-        assert(matrix_data_var->data_type == MAT_T_SINGLE);
-        std::vector<double> A;
-        A.reserve(num_elems);
-        float* data = static_cast<float*>(matrix_data_var->data);
-        std::transform(data, data + num_elems, std::back_inserter(A), [](const float x) { return static_cast<double>(x); });
+        size_t num_cols = matrix_data_var->dims[1];
+        std::vector<double> A(num_cols);
 
+        if (matrix_data_var->dims[0] != 1) {
+            if (matrix_data_var->class_type == MAT_C_SPARSE) {
+                assert(matrix_data_var->data_type == MAT_T_DOUBLE);
+                const mat_sparse_t* sparse_m_data = static_cast<mat_sparse_t*>(matrix_data_var->data);
+                const double* data_ptr = static_cast<double*>(sparse_m_data->data);
+                for (int col = 0; col < num_cols; ++col) {
+                    for (uint32_t idx = sparse_m_data->jc[col]; idx < sparse_m_data->jc[col + 1]; ++idx) {
+                        A[col] += data_ptr[idx];
+                    }
+                }
+            }
+            else {
+                assert(matrix_data_var->data_type == MAT_T_SINGLE);
+                size_t num_rows = matrix_data_var->dims[0];
+                const float* data_ptr = static_cast<float*>(matrix_data_var->data);
+                for (size_t i = 0; i < num_rows * num_cols; ++i) {
+                    const size_t col = i / num_rows;
+                    A[col] += static_cast<double>(data_ptr[i]);
+                }
+            }
+        }
+        else {
+            assert(matrix_data_var->dims[0] == 1); //Should be a pure column vector
+
+            //The mean vectors are stored in single precision, for whatever reason.
+            assert(matrix_data_var->data_type == MAT_T_SINGLE);
+            float* data = static_cast<float*>(matrix_data_var->data);
+            std::transform(data, data + num_cols, A.begin(), [](const float x) { return static_cast<double>(x); });
+        }
         return A;
     }
 
@@ -113,18 +136,26 @@ void TROTSProblem::read_dose_matrices() {
         check_null(matrix_entry, "Failed to read entry " + std::to_string(i) + " from matrix.data\n");
         matvar_t* A = Mat_VarGetStructFieldByName(matrix_entry, "A", 0);
         check_null(A, "Failed to read A from entry " + std::to_string(i) + " in matrix.data\n");
-        auto& new_variant = this->matrices.emplace_back();
 
-        //For the mean functions, the "A"-matrix is reduced to a dense vector.
-        //Check if we have a sparse matrix or dense vector
-        if (A->class_type == MAT_C_SPARSE) {
-            new_variant.emplace<std::unique_ptr<SparseMatrix<double>>>(
-                read_and_cvt_sparse_mat(matrix_entry)
+        matvar_t* name = Mat_VarGetStructFieldByName(matrix_entry, "Name", 0);
+        check_null(name, "Failed to read Name from entry " + std::to_string(i) + " in matrix.data\n");
+        std::string name_str = get_name_str(name);
+
+
+        //I have not found another more reliable way to determine if the function type is mean.
+        //Usually, functions that are supposed to be avg have "(mean)" in the dose matrix name
+        const bool is_mean = name_str.find("(mean)") != std::string::npos
+                             || A->dims[0] == 1;
+
+        auto& new_variant = this->matrices.emplace_back();
+        if (is_mean) {
+            new_variant.emplace<std::vector<double>>(
+                get_mean_vector(matrix_entry)
             );
         }
         else {
-            new_variant.emplace<std::vector<double>>(
-                get_mean_vector(matrix_entry)
+            new_variant.emplace<std::unique_ptr<SparseMatrix<double>>>(
+                read_and_cvt_sparse_mat(matrix_entry)
             );
         }
 

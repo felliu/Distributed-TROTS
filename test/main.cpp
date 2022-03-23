@@ -32,7 +32,7 @@ void time_obj_func(const TROTSProblem& problem, const std::vector<double>& x) {
 
     microseconds total_time_obj(0);
     microseconds total_time_cons(0);
-    for (int i = 0; i < N; ++i) { 
+    for (int i = 0; i < N; ++i) {
         total_time_obj += obj_durations[i];
         total_time_cons += cons_durations[i];
     }

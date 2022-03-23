@@ -1,12 +1,13 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <cassert>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <tuple>
 
-struct matvar_t;
+#include "matio.h"
 
 template <typename T>
 void check_null(T* ptr, const std::string& msg) {
@@ -87,5 +88,8 @@ csc_to_csr(int rows, int cols,
 
     return std::make_tuple(data_csr, col_idxs_csr, row_ptrs_csr);
 }
+
+
+std::string get_name_str(const matvar_t* name_var);
 
 #endif

@@ -35,7 +35,9 @@ bool TROTS_ipopt::get_bounds_info(int n, double* x_l, double* x_u, int m, double
 
     for (int i = 0; i < m; ++i) {
         const TROTSEntry& cons_entry = this->problem->constraint_entries[i];
-        if (cons_entry.is_minimisation()) {
+        if (cons_entry.is_minimisation() ||
+            cons_entry.function_type() == FunctionType::Min ||
+            cons_entry.function_type() == FunctionType::Max) {
             g_l[i] = neg_inf;
             g_u[i] = 0.0;
         } else {
@@ -149,11 +151,7 @@ void TROTS_ipopt::finalize_solution(Ipopt::SolverReturn status, int n,
         x_vec.push_back(x[i]);
     }
 
-<<<<<<< HEAD
-    dump_vector_to_file(x_vec, "hn_01_ipopt_pardiso_rs_desktop.bin");
-=======
     dump_vector_to_file(x_vec, "hn_01_ipopt_serial_mkl.bin");
->>>>>>> 816214d18fd03d12539b1bd96daae022afc3986b
 
     std::cout << "IPOPT finalize_solution called\n";
     std::cout << "Exit status: " << status << "\n";
