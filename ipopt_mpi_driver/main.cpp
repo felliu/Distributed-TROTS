@@ -9,6 +9,7 @@
 #include "rank_local_data.h"
 #include "sparse_matrix_transfers.h"
 #include "trots.h"
+#include "debug_utils.h"
 
 MPI_Comm obj_ranks_comm = MPI_COMM_NULL;
 MPI_Comm cons_ranks_comm = MPI_COMM_NULL;
@@ -16,6 +17,30 @@ MPI_Comm cons_ranks_comm = MPI_COMM_NULL;
 namespace {
 
 
+    void show_rank_local_data(int rank, const LocalData& data) {
+        int my_rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+        if (my_rank != rank)
+            return;
+
+        std::cout << "Local data for rank: " << rank << "\n";
+        std::cout << "Matrix ids: ";
+        print_vector(data.matrix_ids);
+
+        std::cout << "Vec ids: ";
+        print_vector(data.mean_vec_ids);
+
+        int total_nnz = 0;
+        for (const auto& mat_ptr : data.matrices) {
+            total_nnz += mat_ptr->get_nnz();
+        }
+
+        for (const auto& mean_vec : data.mean_vecs) {
+            total_nnz += mean_vec.size();
+        }
+
+        std::cout << "Total nnz: " << total_nnz << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -75,6 +100,16 @@ int main(int argc, char* argv[]) {
     LocalData rank_local_data;
     if (world_rank != 0)
         receive_sparse_matrices(rank_local_data);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (world_rank == 0) {
+        std::cout << "Finished transfers" << std::endl;
+    }
+
+    for (int i = 0; i < num_ranks; ++i) {
+        show_rank_local_data(i, rank_local_data);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
 
     MPI_Finalize();
     return 0;
