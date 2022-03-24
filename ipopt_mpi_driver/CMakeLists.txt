@@ -10,6 +10,10 @@ add_executable(ipopt_mpi_main
     main.cpp
     data_distribution.h
     data_distribution.cpp
+    globals.h
+    rank_local_data.h
+    sparse_matrix_transfers.cpp
+    sparse_matrix_transfers.h
 )
 
 target_compile_features(ipopt_mpi_main PUBLIC cxx_std_17)

@@ -5,6 +5,7 @@
 #include <tuple>
 
 #include "trots.h"
+#include <mpi.h>
 
 //Distributes the terms of the TROTSProblem (roughly) evenly between MPI ranks so that
 //the workload is even.

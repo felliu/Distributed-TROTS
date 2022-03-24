@@ -31,6 +31,17 @@ public:
     void calc_obj_gradient(const double* x, double* y, bool cached_dose=false) const;
     void calc_constraints(const double* x, double* cons_vals, bool cached_dose=false) const;
     void calc_jacobian_vals(const double* x, double* jacobian_vals, bool cached_dose=false) const;
+    std::variant<std::unique_ptr<SparseMatrix<double>>, std::vector<double>>&
+    get_mat_by_data_id(int data_id) {
+        return matrices[data_id - 1];
+    }
+    const std::variant<std::unique_ptr<SparseMatrix<double>>, std::vector<double>>&
+    get_mat_by_data_id(int data_id) const {
+        return matrices[data_id - 1];
+    }
+    void clear_mat_data() {
+        this->matrices.clear();
+    }
 
 
 private:

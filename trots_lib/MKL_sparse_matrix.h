@@ -57,6 +57,10 @@ public:
     from_CSC_mat(int nnz, int rows, int cols,
                  const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs);
 
+    static std::unique_ptr<SparseMatrix<T>>
+    from_CSR_mat(int nnz, int rows, int cols,
+                 const T* vals, const int* col_idxs, const int* row_ptrs);
+
     MKL_sparse_matrix() = default;
 
     MKL_sparse_matrix(const MKL_sparse_matrix& rhs);
@@ -189,6 +193,27 @@ MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, c
     mat->cols = cols;
     mat->nnz = nnz;
     std::tie(mat->data, mat->indices, mat->indptrs) = csc_to_csr(rows, cols, vals, &row_idxs_int[0], &col_ptrs_int[0]);
+
+    mat->init_mkl_handle();
+    return std::unique_ptr<MKL_sparse_matrix<T>>(mat);
+}
+
+template <typename T>
+std::unique_ptr<SparseMatrix<T>>
+MKL_sparse_matrix<T>::from_CSR_mat(int nnz, int rows, int cols,
+                                   const T* vals, const int* col_idxs, const int* row_ptrs) {
+    MKL_sparse_matrix<T>* mat = new MKL_sparse_matrix<T>();
+    mat->rows = rows;
+    mat->cols = cols;
+    mat->nnz = nnz;
+
+    mat->data = new T[nnz];
+    mat->indices = new int[nnz];
+    mat->indptrs = new int[rows + 1];
+
+    std::memcpy(static_cast<void*>(mat->data), static_cast<const void*>(vals), sizeof(T) * nnz);
+    std::memcpy(static_cast<void*>(mat->indices), static_cast<const void*>(col_idxs), sizeof(int) * nnz);
+    std::memcpy(static_cast<void*>(mat->indptrs), static_cast<const void*>(row_ptrs), sizeof(int) * (rows + 1));
 
     mat->init_mkl_handle();
     return std::unique_ptr<MKL_sparse_matrix<T>>(mat);

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <numeric>
 #include <tuple>
 
@@ -11,7 +12,6 @@ std::tuple<MPI_Comm, MPI_Comm>
 split_obj_cons_comm(const std::vector<int>& obj_ranks, const std::vector<int>& cons_ranks) {
         MPI_Group world_group;
         MPI_Comm_group(MPI_COMM_WORLD, &world_group);
-
 
         MPI_Group cons_group;
         MPI_Group_incl(world_group, cons_ranks.size(), &cons_ranks[0], &cons_group);
@@ -33,14 +33,19 @@ get_obj_cons_rank_idxs(const TROTSProblem& problem) {
     int num_ranks_world = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks_world);
 
-    //Divide the ranks so between ranks that will compute constraint values and
+    //Divide the ranks between ranks that will compute constraint values and
     //ranks that will compute objective values. The division will be such that all ranks
     //except rank 0 will be divided approximately equally between ranks calculating constraint
     //values and ranks calculating objective values
-    int num_cons_ranks =
-        static_cast<int>(std::round((num_ranks_world - 1) * num_constraints /
-            static_cast<double>(num_constraints + num_objectives))) + 1;
+    const int numerator = (num_ranks_world - 1) * num_constraints;
+    const int denominator = num_constraints + num_objectives;
+
+    //We also need to take care so that each of the groups gets at least one rank in addition to rank 0
+    int tmp = std::max(static_cast<int>(std::round(numerator / static_cast<double>(denominator))), 1) + 1;
+    int num_cons_ranks = std::min(tmp, num_ranks_world - 2);
+    std::cerr << "Cons ranks: " << num_cons_ranks << "\n";
     int num_obj_ranks = num_ranks_world - num_cons_ranks + 1;
+    std::cerr << "Obj ranks: " << num_obj_ranks << "\n";
 
     std::vector<int> cons_ranks;
     for (int i = 0; i <= num_cons_ranks; ++i)
