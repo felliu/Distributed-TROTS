@@ -52,6 +52,8 @@ int main(int argc, char* argv[]) {
 
     std::vector<int> obj_ranks;
     std::vector<int> cons_ranks;
+    std::vector<std::vector<int>> rank_distrib_obj;
+    std::vector<std::vector<int>> rank_distrib_cons;
     TROTSProblem trots_problem;
     if (world_rank == 0) {
         if (argc < 2 || argc > 3) {
@@ -94,7 +96,16 @@ int main(int argc, char* argv[]) {
     std::cerr << "communicators split!\n";
 
     if (world_rank == 0) {
-        distribute_sparse_matrices_send(trots_problem);
+        int num_obj_ranks = 0;
+        MPI_Comm_size(obj_ranks_comm, &num_obj_ranks);
+        int num_cons_ranks = 0;
+        MPI_Comm_size(cons_ranks_comm, &num_cons_ranks);
+
+        //Get a roughly even distribution of the matrices between the ranks, excluding rank 0
+        rank_distrib_obj = get_rank_distribution(trots_problem.objective_entries, num_obj_ranks - 1);
+        rank_distrib_cons = get_rank_distribution(trots_problem.constraint_entries, num_cons_ranks - 1);
+
+        distribute_sparse_matrices_send(trots_problem, rank_distrib_obj, rank_distrib_cons);
     }
 
     LocalData rank_local_data;

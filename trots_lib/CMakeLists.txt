@@ -1,3 +1,17 @@
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
+
+find_package(Boost REQUIRED COMPONENTS serialization)
+
+if(NOT TARGET Boost::serialization)
+    add_library(Boost::serialization IMPORTED INTERFACE)
+    set_property(TARGET Boost::serialization PROPERTY
+        INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
+    set_property(TARGET Boost::serialization PROPERTY
+        INTERFACE_LINK_LIBRARIES ${Boost_LIBRARIES})
+endif()
+
+
 add_library(trots_lib STATIC
     trots.cpp
     trots.h
@@ -22,7 +36,7 @@ target_include_directories(trots_lib PUBLIC
     .
 )
 
-target_link_libraries(trots_lib PUBLIC matio::matio)
+target_link_libraries(trots_lib PUBLIC matio::matio Boost::serialization)
 
 if (${USE_MKL})
     target_compile_options(trots_lib PUBLIC ${MKL_COMPILE_OPTIONS})

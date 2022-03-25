@@ -120,21 +120,13 @@ namespace {
     }
 }
 
-void distribute_sparse_matrices_send(TROTSProblem& trots_problem) {
+void distribute_sparse_matrices_send(
+        TROTSProblem& trots_problem,
+        const std::vector<std::vector<int>>& rank_distrib_obj,
+        const std::vector<std::vector<int>>& rank_distrib_cons) {
     //When this function is called,
     //the objective and constraint rank communicators should have been initialized already
     assert(obj_ranks_comm != MPI_COMM_NULL && cons_ranks_comm != MPI_COMM_NULL);
-    int num_obj_ranks = 0;
-    MPI_Comm_size(obj_ranks_comm, &num_obj_ranks);
-    int num_cons_ranks = 0;
-    MPI_Comm_size(cons_ranks_comm, &num_cons_ranks);
-
-    //Get a roughly even distribution of the matrices between the ranks, excluding rank 0
-    std::vector<std::vector<int>> rank_distrib_obj =
-        get_rank_distribution(trots_problem.objective_entries, num_obj_ranks - 1);
-
-    std::vector<std::vector<int>> rank_distrib_cons =
-        get_rank_distribution(trots_problem.constraint_entries, num_cons_ranks - 1);
 
     //Check that we're rank zero on all communicators
     int world_rank = 1;

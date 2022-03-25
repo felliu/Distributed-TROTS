@@ -1,6 +1,12 @@
 #ifndef TROTS_ENTRY_H
 #define TROTS_ENTRY_H
 
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/vector.hpp>
+
 #include <variant>
 
 #include "SparseMat.h"
@@ -57,6 +63,10 @@ private:
     void quad_max_grad(const double* x, double* grad, bool cached_dose) const;
     void quad_grad(const double* x, double* grad) const;
 
+    friend class boost::serialization::access;
+    template <typename Archive>
+    void serialize(Archive& ar, const unsigned int version);
+
     std::vector<int> calc_grad_nonzero_idxs() const;
 
     int num_vars;
@@ -76,8 +86,8 @@ private:
 
     double c; //Scalar factor used in quadratic cost functions.
     //const MKL_sparse_matrix<double>* matrix_ref;
-    const SparseMatrix<double>* matrix_ref;
-    const std::vector<double>* mean_vec_ref;
+    SparseMatrix<double> const* matrix_ref;
+    std::vector<double> const* mean_vec_ref;
 
     //When calculating many objective values, a temporary store for the A*x is needed. Provide it here once so it does not
     //need to be allocated every time.
@@ -85,6 +95,30 @@ private:
     //Gradient calculation can require more temporaries
     mutable std::vector<double> grad_tmp;
 };
+
+template <typename Archive>
+void TROTSEntry::serialize(Archive& ar, const unsigned int version) {
+    this->matrix_ref = nullptr;
+    this->mean_vec_ref = nullptr;
+    ar & num_vars;
+    ar & id;
+    ar & roi_name;
+    ar & func_params;
+    ar & grad_nonzero_idxs;
+    ar & active;
+    ar & minimise;
+    ar & is_cons;
+    ar & type;
+    ar & rhs;
+    ar & weight;
+    ar & c;
+    //These will lose their meaning when sent, but we will reset them on the other side
+    ar & matrix_ref;
+    ar & mean_vec_ref;
+
+    ar & y_vec;
+    ar & grad_tmp;
+}
 
 
 #endif
