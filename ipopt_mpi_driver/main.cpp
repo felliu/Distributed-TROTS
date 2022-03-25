@@ -9,37 +9,53 @@
 #include "rank_local_data.h"
 #include "sparse_matrix_transfers.h"
 #include "trots.h"
+#include "trots_entry_transfers.h"
 #include "debug_utils.h"
 
 MPI_Comm obj_ranks_comm = MPI_COMM_NULL;
 MPI_Comm cons_ranks_comm = MPI_COMM_NULL;
 
 namespace {
-
-
     void show_rank_local_data(int rank, const LocalData& data) {
         int my_rank;
         MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
         if (my_rank != rank)
             return;
 
+        std::vector<int> matrix_ids;
+        int total_nnz = 0;
+        for (const auto& [key, mat] : data.matrices) {
+            matrix_ids.push_back(key);
+            total_nnz += mat->get_nnz();
+        }
+
+        std::vector<int> mean_vec_ids;
+        for (const auto& [key, mat] : data.mean_vecs) {
+            mean_vec_ids.push_back(key);
+            total_nnz += mat.size();
+        }
+
         std::cout << "Local data for rank: " << rank << "\n";
         std::cout << "Matrix ids: ";
-        print_vector(data.matrix_ids);
+        print_vector(matrix_ids);
 
         std::cout << "Vec ids: ";
-        print_vector(data.mean_vec_ids);
-
-        int total_nnz = 0;
-        for (const auto& mat_ptr : data.matrices) {
-            total_nnz += mat_ptr->get_nnz();
-        }
-
-        for (const auto& mean_vec : data.mean_vecs) {
-            total_nnz += mean_vec.size();
-        }
+        print_vector(mean_vec_ids);
 
         std::cout << "Total nnz: " << total_nnz << std::endl;
+    }
+
+    void show_rank_local_entries(int rank, const LocalData& data) {
+        int my_rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+        if (my_rank != rank)
+            return;
+
+        std::cout << "TROTSentries for rank: " << my_rank << "\n";
+        for (const TROTSEntry& entry : data.trots_entries) {
+            std::cout << "TrotsEntry name: " << entry.get_roi_name() << "\n";
+        }
+        std::cout << "\n" << std::endl;
     }
 }
 
@@ -113,12 +129,26 @@ int main(int argc, char* argv[]) {
         receive_sparse_matrices(rank_local_data);
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if (world_rank == 0) {
-        std::cout << "Finished transfers" << std::endl;
-    }
-
     for (int i = 0; i < num_ranks; ++i) {
         show_rank_local_data(i, rank_local_data);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    if (world_rank == 0) {
+        distribute_trots_entries_send(
+            trots_problem.objective_entries,
+            trots_problem.constraint_entries,
+            rank_distrib_obj,
+            rank_distrib_cons);
+    }
+
+    if (world_rank != 0) {
+        recv_trots_entries(rank_local_data);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    init_local_data(rank_local_data);
+    MPI_Barrier(MPI_COMM_WORLD);
+    for (int i = 0; i < num_ranks; ++i) {
+        show_rank_local_entries(i, rank_local_data);
         MPI_Barrier(MPI_COMM_WORLD);
     }
 

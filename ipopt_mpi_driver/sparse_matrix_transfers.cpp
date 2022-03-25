@@ -68,17 +68,14 @@ namespace {
             int data_id = 0;
             MPI_Recv(&data_id, 1, MPI_INT, 0, DATA_ID_TAG, communicator, MPI_STATUS_IGNORE);
             if (is_vec) {
-                //Store the data id;
-                local_data.mean_vec_ids.push_back(data_id);
                 int num_elems = probe_message_size(VEC_DATA_TAG, communicator, MPI_DOUBLE, 0);
-                std::vector<double>& new_vec = local_data.mean_vecs.emplace_back();
-                new_vec.resize(num_elems);
+                std::vector<double> new_vec(num_elems);
                 MPI_Recv(static_cast<void*>(&new_vec[0]), num_elems, MPI_DOUBLE,
                                             0, VEC_DATA_TAG, communicator, MPI_STATUS_IGNORE);
+                local_data.mean_vecs.insert({data_id, new_vec});
             }
 
             else {
-                local_data.matrix_ids.push_back(data_id);
                 int num_cols;
                 MPI_Recv(&num_cols, 1, MPI_INT, 0, CSR_NUM_COLS_TAG, communicator, MPI_STATUS_IGNORE);
                 int nnz = probe_message_size(CSR_DATA_TAG, communicator, MPI_DOUBLE, 0);
@@ -92,9 +89,10 @@ namespace {
                 MPI_Recv(col_idxs_buffer, nnz, MPI_INT, 0, CSR_COL_INDS_TAG, communicator, MPI_STATUS_IGNORE);
                 MPI_Recv(row_ptrs_buffer, num_rows + 1, MPI_INT, 0, CSR_ROW_PTRS_TAG, communicator, MPI_STATUS_IGNORE);
 
-                local_data.matrices.emplace_back(
+                local_data.matrices.insert(
+                    {data_id,
                     MKL_sparse_matrix<double>::from_CSR_mat(nnz, num_rows, num_cols,
-                        data_buffer, col_idxs_buffer, row_ptrs_buffer)
+                        data_buffer, col_idxs_buffer, row_ptrs_buffer)}
                 );
 
                 delete[] data_buffer;

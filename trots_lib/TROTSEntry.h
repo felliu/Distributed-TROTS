@@ -16,12 +16,18 @@ enum class FunctionType {
     gEUD, LTCP, DVH, Chain
 };
 
+struct matvar_t;
+
 class TROTSEntry {
 public:
+    //The default constructor is provided to enable serialization & de-serialization to
+    //transfer between MPI ranks
+    TROTSEntry() = default;
     TROTSEntry(matvar_t* problem_struct_entry, matvar_t* data_struct,
                const std::vector<std::variant<std::unique_ptr<SparseMatrix<double>>,
                                               std::vector<double>>
                                 >& mat_refs);
+
     bool is_constraint() const noexcept { return this->is_cons; }
     bool is_active() const noexcept { return this->active; }
     bool is_minimisation() const noexcept { return this->minimise; }
@@ -38,6 +44,10 @@ public:
             return static_cast<int>(this->mean_vec_ref->size());
         }
     }
+
+    void set_matrix_ptr(SparseMatrix<double>* ptr) { this->matrix_ref = ptr; }
+    void set_mean_vec_ptr(std::vector<double>* ptr) { this->mean_vec_ref = ptr; }
+
     std::vector<double> calc_sparse_grad(const double* x, bool cached_dose=false) const;
     //Returns the indexes of the non-zero elements in the gradient of the entry.
     FunctionType function_type() const noexcept { return this->type; }

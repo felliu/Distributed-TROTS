@@ -3,18 +3,19 @@
 
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 #include "SparseMat.h"
 #include "TROTSEntry.h"
 
 struct LocalData {
-    std::vector<std::unique_ptr<SparseMatrix<double>>> matrices;
-    std::vector<int> matrix_ids;
-
-    std::vector<std::vector<double>> mean_vecs;
-    std::vector<int> mean_vec_ids;
+    //Map from dataID to dose matrix
+    std::unordered_map<int, std::unique_ptr<SparseMatrix<double>>> matrices;
+    std::unordered_map<int, std::vector<double>> mean_vecs;
 
     std::vector<TROTSEntry> trots_entries;
 };
+
+void init_local_data(LocalData& data);
 
 #endif
