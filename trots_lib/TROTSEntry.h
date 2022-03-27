@@ -49,11 +49,12 @@ public:
     void set_mean_vec_ptr(std::vector<double>* ptr) { this->mean_vec_ref = ptr; }
 
     std::vector<double> calc_sparse_grad(const double* x, bool cached_dose=false) const;
-    //Returns the indexes of the non-zero elements in the gradient of the entry.
     FunctionType function_type() const noexcept { return this->type; }
     std::string get_roi_name() const { return this->roi_name; }
 
+    //Returns the indexes of the non-zero elements in the gradient of the entry.
     std::vector<int> get_grad_nonzero_idxs() const { return this->grad_nonzero_idxs; }
+    int get_grad_nnz() const { return this->grad_nonzero_idxs.size(); }
 private:
     double calc_quadratic(const double* x) const;
     double calc_max(const double* x) const;

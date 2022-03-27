@@ -17,6 +17,8 @@ add_executable(ipopt_mpi_main
     sparse_matrix_transfers.h
     trots_entry_transfers.cpp
     trots_entry_transfers.h
+    trots_ipopt_mpi.cpp
+    trots_ipopt_mpi.h
 )
 
 target_compile_features(ipopt_mpi_main PUBLIC cxx_std_17)

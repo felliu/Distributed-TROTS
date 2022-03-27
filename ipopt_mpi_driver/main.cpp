@@ -4,12 +4,15 @@
 #include <filesystem>
 #include <unordered_set>
 
+#include "coin-or/IpIpoptApplication.hpp"
+
 #include "data_distribution.h"
 #include "globals.h"
 #include "rank_local_data.h"
 #include "sparse_matrix_transfers.h"
 #include "trots.h"
 #include "trots_entry_transfers.h"
+#include "trots_ipopt_mpi.h"
 #include "debug_utils.h"
 
 MPI_Comm obj_ranks_comm = MPI_COMM_NULL;
@@ -70,7 +73,9 @@ int main(int argc, char* argv[]) {
     std::vector<int> cons_ranks;
     std::vector<std::vector<int>> rank_distrib_obj;
     std::vector<std::vector<int>> rank_distrib_cons;
+    std::vector<int> cons_rank_jac_nnz;
     TROTSProblem trots_problem;
+    LocalData rank_local_data;
     if (world_rank == 0) {
         if (argc < 2 || argc > 3) {
             std::cerr << "Usage: ./program <mat_file>\n"
@@ -95,6 +100,8 @@ int main(int argc, char* argv[]) {
         MPI_Bcast(&sizes[0], 2, MPI_INT, 0, MPI_COMM_WORLD);
         MPI_Bcast(&obj_ranks[0], obj_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);
         MPI_Bcast(&cons_ranks[0], cons_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);
+        rank_local_data.num_vars = trots_problem.get_num_vars();
+        MPI_Bcast(&rank_local_data.num_vars, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     } else {
         //First involvement of other ranks: get the rank distribution info from rank 0
@@ -105,11 +112,10 @@ int main(int argc, char* argv[]) {
 
         MPI_Bcast(&obj_ranks[0], sizes[0], MPI_INT, 0, MPI_COMM_WORLD);
         MPI_Bcast(&cons_ranks[0], sizes[1], MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&rank_local_data.num_vars, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }
 
     std::tie(obj_ranks_comm, cons_ranks_comm) = split_obj_cons_comm(obj_ranks, cons_ranks);
-
-    std::cerr << "communicators split!\n";
 
     if (world_rank == 0) {
         int num_obj_ranks = 0;
@@ -121,18 +127,26 @@ int main(int argc, char* argv[]) {
         rank_distrib_obj = get_rank_distribution(trots_problem.objective_entries, num_obj_ranks - 1);
         rank_distrib_cons = get_rank_distribution(trots_problem.constraint_entries, num_cons_ranks - 1);
 
+        //Initialize the array with the number of non-zeros per constraint rank
+        for (int cons_rank = 0; cons_rank < rank_distrib_cons.size(); ++cons_rank) {
+            int jac_nnz = 0;
+            const std::vector<int>& entry_idxs = rank_distrib_cons[cons_rank];
+            for (int idx : entry_idxs) {
+                jac_nnz += trots_problem.constraint_entries[idx].get_grad_nnz();
+            }
+            cons_rank_jac_nnz.push_back(jac_nnz);
+        }
         distribute_sparse_matrices_send(trots_problem, rank_distrib_obj, rank_distrib_cons);
     }
 
-    LocalData rank_local_data;
     if (world_rank != 0)
         receive_sparse_matrices(rank_local_data);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    /*MPI_Barrier(MPI_COMM_WORLD);
     for (int i = 0; i < num_ranks; ++i) {
         show_rank_local_data(i, rank_local_data);
         MPI_Barrier(MPI_COMM_WORLD);
-    }
+    }*/
     if (world_rank == 0) {
         distribute_trots_entries_send(
             trots_problem.objective_entries,
@@ -147,9 +161,22 @@ int main(int argc, char* argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
     init_local_data(rank_local_data);
     MPI_Barrier(MPI_COMM_WORLD);
-    for (int i = 0; i < num_ranks; ++i) {
+    /*for (int i = 0; i < num_ranks; ++i) {
         show_rank_local_entries(i, rank_local_data);
         MPI_Barrier(MPI_COMM_WORLD);
+    }*/
+
+    if (world_rank == 0) {
+        Ipopt::SmartPtr<Ipopt::TNLP> tnlp =
+            new TROTS_ipopt_mpi(std::move(trots_problem), rank_distrib_cons, std::move(rank_local_data));
+        Ipopt::SmartPtr<Ipopt::IpoptApplication> app = new Ipopt::IpoptApplication();
+        app->Options()->SetStringValue("hessian_approximation", "limited-memory");
+        app->Options()->SetStringValue("derivative_test", "first-order");
+        app->Initialize();
+        app->OptimizeTNLP(tnlp);
+    }
+    else if (std::find(obj_ranks.begin(), obj_ranks.end(), world_rank) != obj_ranks.end()) {
+        compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data);
     }
 
     MPI_Finalize();

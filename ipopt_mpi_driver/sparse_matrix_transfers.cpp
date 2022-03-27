@@ -89,10 +89,11 @@ namespace {
                 MPI_Recv(col_idxs_buffer, nnz, MPI_INT, 0, CSR_COL_INDS_TAG, communicator, MPI_STATUS_IGNORE);
                 MPI_Recv(row_ptrs_buffer, num_rows + 1, MPI_INT, 0, CSR_ROW_PTRS_TAG, communicator, MPI_STATUS_IGNORE);
 
-                local_data.matrices.insert(
-                    {data_id,
+                std::unique_ptr<SparseMatrix<double>> mat =
                     MKL_sparse_matrix<double>::from_CSR_mat(nnz, num_rows, num_cols,
-                        data_buffer, col_idxs_buffer, row_ptrs_buffer)}
+                        data_buffer, col_idxs_buffer, row_ptrs_buffer);
+                local_data.matrices.insert(
+                    {data_id, std::move(mat)}
                 );
 
                 delete[] data_buffer;

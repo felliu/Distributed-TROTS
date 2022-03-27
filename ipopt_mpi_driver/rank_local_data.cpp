@@ -5,7 +5,12 @@
 #include "TROTSEntry.h"
 
 void init_local_data(LocalData& data) {
+    data.x_buffer.resize(data.num_vars);
+    data.grad_tmp.resize(data.num_vars);
+    data.local_jac_nnz = 0;
     for (TROTSEntry& entry : data.trots_entries) {
+        data.local_jac_nnz += entry.get_grad_nnz();
+
         bool found_id = false;
         const int data_id = entry.get_id();
         auto mat_it = data.matrices.find(data_id);
