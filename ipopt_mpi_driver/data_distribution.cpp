@@ -7,6 +7,7 @@
 #include <mpi.h>
 
 #include "data_distribution.h"
+#include "debug_utils.h"
 
 std::tuple<MPI_Comm, MPI_Comm>
 split_obj_cons_comm(const std::vector<int>& obj_ranks, const std::vector<int>& cons_ranks) {
@@ -48,12 +49,14 @@ get_obj_cons_rank_idxs(const TROTSProblem& problem) {
     std::cerr << "Obj ranks: " << num_obj_ranks << "\n";
 
     std::vector<int> cons_ranks;
-    for (int i = 0; i <= num_cons_ranks; ++i)
+    for (int i = 0; i < num_cons_ranks; ++i)
         cons_ranks.push_back(i);
 
     std::vector<int> obj_ranks = {0};
-    for (int i  = num_cons_ranks + 1; i < num_ranks_world; ++i)
+    for (int i = num_cons_ranks; i < num_ranks_world; ++i)
         obj_ranks.push_back(i);
+    print_vector(cons_ranks);
+    print_vector(obj_ranks);
 
     return std::make_tuple(obj_ranks, cons_ranks);
 }
@@ -89,10 +92,10 @@ get_rank_distribution(const std::vector<TROTSEntry>& entries, int num_ranks) {
         return a_nnz_sum < b_nnz_sum;
     };
 
-    //greedy distribution: loop over all indexes and put the next entry into the currently
+    //greedy distribution: loop over all indexes, except the first one (belonging to rank 0) and put the next entry into the currently
     //smallest bucket
     for (int idx : entry_idxs) {
-        auto min_elem_it = std::min_element(buckets.begin(), buckets.end(), compare_nnz_sums);
+        auto min_elem_it = std::min_element(buckets.begin() + 1, buckets.end(), compare_nnz_sums);
         min_elem_it->push_back(idx);
     }
 

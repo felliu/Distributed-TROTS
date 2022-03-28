@@ -21,8 +21,8 @@ namespace {
     void distribute_matrices(const TROTSProblem& trots_problem, MPI_Comm communicator,
                              const std::vector<std::unordered_set<int>>& rank_data_id_distribution) {
         //NOTE: We exclude rank 0 here to avoid deadlock problems.
-        for (int rank = 1; rank <= rank_data_id_distribution.size(); ++rank) {
-            const std::unordered_set<int>& data_ids = rank_data_id_distribution[rank - 1];
+        for (int rank = 1; rank < rank_data_id_distribution.size(); ++rank) {
+            const std::unordered_set<int>& data_ids = rank_data_id_distribution[rank];
             int num_matrices = static_cast<int>(data_ids.size());
             MPI_Send(&num_matrices, 1, MPI_INT, rank, NUM_MATS_TAG, communicator);
             for (int data_id : data_ids) {

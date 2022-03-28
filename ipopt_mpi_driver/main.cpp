@@ -124,8 +124,20 @@ int main(int argc, char* argv[]) {
         MPI_Comm_size(cons_ranks_comm, &num_cons_ranks);
 
         //Get a roughly even distribution of the matrices between the ranks, excluding rank 0
-        rank_distrib_obj = get_rank_distribution(trots_problem.objective_entries, num_obj_ranks - 1);
-        rank_distrib_cons = get_rank_distribution(trots_problem.constraint_entries, num_cons_ranks - 1);
+        rank_distrib_obj = get_rank_distribution(trots_problem.objective_entries, num_obj_ranks);
+        assert(rank_distrib_obj[0].empty());
+        for (int i = 0; i < rank_distrib_obj.size();++i) {
+            const auto& v = rank_distrib_obj[i];
+            std::cout << "Rank " << i << " obj entries\n";
+            print_vector(v);
+        }
+        rank_distrib_cons = get_rank_distribution(trots_problem.constraint_entries, num_cons_ranks);
+        assert(rank_distrib_cons[0].empty());
+        for (int i = 0; i < rank_distrib_cons.size();++i) {
+            const auto& v = rank_distrib_cons[i];
+            std::cout << "Rank " << i << " cons entries\n";
+            print_vector(v);
+        }
 
         //Initialize the array with the number of non-zeros per constraint rank
         for (int cons_rank = 0; cons_rank < rank_distrib_cons.size(); ++cons_rank) {
@@ -166,6 +178,7 @@ int main(int argc, char* argv[]) {
         MPI_Barrier(MPI_COMM_WORLD);
     }*/
 
+
     if (world_rank == 0) {
         Ipopt::SmartPtr<Ipopt::TNLP> tnlp =
             new TROTS_ipopt_mpi(std::move(trots_problem), rank_distrib_cons, std::move(rank_local_data));
@@ -174,9 +187,10 @@ int main(int argc, char* argv[]) {
         app->Options()->SetStringValue("derivative_test", "first-order");
         app->Initialize();
         app->OptimizeTNLP(tnlp);
-    }
-    else if (std::find(obj_ranks.begin(), obj_ranks.end(), world_rank) != obj_ranks.end()) {
+    } else if (std::find(obj_ranks.begin(), obj_ranks.end(), world_rank) != obj_ranks.end()) {
         compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data);
+    } else if (std::find(cons_ranks.begin(), cons_ranks.end(), world_rank) != cons_ranks.end()) {
+        compute_cons_vals_mpi(nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt);
     }
 
     MPI_Finalize();

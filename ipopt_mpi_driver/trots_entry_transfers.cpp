@@ -19,8 +19,8 @@ namespace {
             const std::vector<TROTSEntry>& entries,
             const std::vector<std::vector<int>>& rank_distrib,
             MPI_Comm communicator) {
-        for (int rank = 1; rank <= rank_distrib.size(); ++rank) {
-            const std::vector<int>& entries_for_rank = rank_distrib[rank - 1];
+        for (int rank = 1; rank < rank_distrib.size(); ++rank) {
+            const std::vector<int>& entries_for_rank = rank_distrib[rank];
             const int num_entries = static_cast<int>(entries_for_rank.size());
             MPI_Send(&num_entries, 1, MPI_INT, rank, NUM_ENTRIES_TAG, communicator);
             for (int entry_idx : entries_for_rank) {

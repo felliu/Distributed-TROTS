@@ -2,6 +2,7 @@
 #define TROTS_IPOPT_MPI_H
 
 #include <memory>
+#include <optional>
 
 #include "coin-or/IpTNLP.hpp"
 
@@ -52,6 +53,7 @@ private:
 
 double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data);
 void compute_cons_vals_mpi(const double* x, double* cons_vals,
-                           bool calc_grad, double* grad, LocalData& local_data);
+                           bool calc_grad, double* grad, LocalData& local_data,
+                           std::optional<ConsDistributionData> distrib_data);
 
 #endif

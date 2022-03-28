@@ -1,5 +1,6 @@
 #include "trots_ipopt_mpi.h"
 
+#include "debug_utils.h"
 #include "globals.h"
 
 #include <iostream>
@@ -15,8 +16,9 @@ TROTS_ipopt_mpi::TROTS_ipopt_mpi(
 
     int cumulative_sum_g = 0;
     int cumulative_sum_jac_g = 0;
-    for (int rank = 0; rank < this->cons_term_distribution.size(); ++rank) {
-        const std::vector<int>& cons_idxs = this->cons_term_distribution[rank];
+
+    for (int i = 0; i < this->cons_term_distribution.size(); ++i) {
+        const std::vector<int>& cons_idxs = this->cons_term_distribution[i];
         int nnz_total = 0;
         int num_cons = cons_idxs.size();
         for (int idx : cons_idxs) {
@@ -90,18 +92,23 @@ bool TROTS_ipopt_mpi::get_starting_point(
 }
 
 bool TROTS_ipopt_mpi::eval_f(int n, const double* x, bool new_x, double& obj_val) {
+    //std::cout << "Calculating f\n";
     obj_val = compute_obj_vals_mpi(x, false, nullptr, this->local_data);
+    //std::cout << "Done" << std::endl;
     return true;
 }
 
 bool TROTS_ipopt_mpi::eval_grad_f(int n, const double* x, bool new_x, double* grad_f) {
+    //std::cout << "Calculating grad f\n";
     compute_obj_vals_mpi(x, true, grad_f, this->local_data);
+    //std::cout << "Done" << std::endl;
     return true;
 }
 
 bool TROTS_ipopt_mpi::eval_g(int n, const double* x, bool new_x, int m, double* g) {
-    //TODO:
-    std::fill(g, g + m, 0.0);
+    //std::cout << "Calculating g\n";
+    compute_cons_vals_mpi(x, g, false, nullptr, this->local_data, std::make_optional(this->distrib_data));
+    //std::cout << "Done" << std::endl;
     return true;
 }
 
@@ -110,7 +117,7 @@ bool TROTS_ipopt_mpi::eval_jac_g(
     int m, int nnz_jac, int* irow, int* icol, double* vals) {
     if (vals == nullptr) {
         assert(irow != nullptr && icol != nullptr);
-        std::cout << "Setting jacobian indexes\n";
+        //std::cout << "Setting jacobian indexes\n";
         //Flatten the array with constraint indices over ranks.
         std::vector<int> flattened_cons_idxs;
         for (const std::vector<int>& rank_idxs : this->cons_term_distribution) {
@@ -127,11 +134,12 @@ bool TROTS_ipopt_mpi::eval_jac_g(
                 ++idx;
             }
         }
-        std::cout << "Done" << std::endl;
+        //std::cout << "Done" << std::endl;
     }
 
     else {
-        std::fill(vals, vals + nnz_jac, 0.0);
+        compute_cons_vals_mpi(x, nullptr, true, vals,
+                              this->local_data, std::make_optional(this->distrib_data));
     }
 
     return true;
@@ -186,11 +194,59 @@ while (true) {
 }
 
 void compute_cons_vals_mpi(const double* x, double* cons_vals,
-                           bool calc_grad, double* grad, LocalData& local_data) {
+                           bool calc_grad, double* grad, LocalData& local_data,
+                           std::optional<ConsDistributionData> distrib_data) {
 while (true) {
     MPI_Barrier(cons_ranks_comm);
     int rank;
     MPI_Comm_rank(cons_ranks_comm, &rank);
+    if (rank == 0) {
+        assert(distrib_data.has_value());
+        std::copy(x, x + local_data.num_vars, local_data.x_buffer.begin());
+    }
+
+    int grad_flag_local = static_cast<int>(calc_grad);
+    MPI_Bcast(&grad_flag_local, 1, MPI_INT, 0, cons_ranks_comm);
+    MPI_Bcast(&local_data.x_buffer[0], local_data.num_vars, MPI_DOUBLE, 0, cons_ranks_comm);
+
+    int* recv_counts = nullptr;
+    int* displacements = nullptr;
+    if (!grad_flag_local) {
+        std::vector<double> local_vals(local_data.trots_entries.size());
+        for (int i = 0; i < local_vals.size(); ++i) {
+            local_vals[i] = local_data.trots_entries[i].calc_value(&local_data.x_buffer[0]);
+        }
+        if (rank == 0) {
+            ConsDistributionData& dist_data = distrib_data.value();
+            recv_counts = &dist_data.recv_counts_g[0];
+            displacements = &dist_data.recv_displacements_g[0];
+        }
+
+        MPI_Gatherv(&local_vals[0], local_vals.size(), MPI_DOUBLE,
+                    cons_vals, recv_counts, displacements, MPI_DOUBLE, 0, cons_ranks_comm);
+    } else {
+        double* local_buf = new double[local_data.local_jac_nnz];
+        int start_idx = 0;
+        std::cout << "local nnz: " << local_data.local_jac_nnz << "\n";
+        for (const TROTSEntry& entry : local_data.trots_entries) {
+            std::vector<double> vals = entry.calc_sparse_grad(&local_data.x_buffer[0]);
+            std::copy(vals.cbegin(), vals.cend(), local_buf + start_idx);
+            start_idx += vals.size();
+            std::cout << "start idx : " << start_idx << std::endl;
+        }
+        if (rank == 0) {
+            ConsDistributionData& dist_data = distrib_data.value();
+            recv_counts = &dist_data.recv_counts_jac[0];
+            displacements = &dist_data.recv_displacements_jac[0];
+        }
+
+        MPI_Gatherv(local_buf, local_data.local_jac_nnz, MPI_DOUBLE, grad,
+                    recv_counts, displacements, MPI_DOUBLE, 0, cons_ranks_comm);
+        delete[] local_buf;
+    }
+
+    if (rank == 0)
+        return;
 
 }
 }
