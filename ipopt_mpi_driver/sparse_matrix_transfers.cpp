@@ -63,9 +63,9 @@ namespace {
         int num_matrices = 0;
         MPI_Recv(&num_matrices, 1, MPI_INT, 0, NUM_MATS_TAG, communicator, MPI_STATUS_IGNORE);
         for (int i = 0; i < num_matrices; ++i) {
-            int is_vec = 0;
+            int is_vec;
             MPI_Recv(&is_vec, 1, MPI_INT, 0, VEC_FLAG_TAG, communicator, MPI_STATUS_IGNORE);
-            int data_id = 0;
+            int data_id;
             MPI_Recv(&data_id, 1, MPI_INT, 0, DATA_ID_TAG, communicator, MPI_STATUS_IGNORE);
             if (is_vec) {
                 int num_elems = probe_message_size(VEC_DATA_TAG, communicator, MPI_DOUBLE, 0);

@@ -23,6 +23,8 @@ void test_trotsentry_distrib(const LocalData& local_data,
             for (int idx : idxs) {
                 data_ids.push_back((*entries)[idx].get_id());
             }
+            std::cout << "data_ids: ";
+            print_vector(data_ids);
             MPI_Send(&data_ids[0], data_ids.size(), MPI_INT, other_rank, 0, comm);
             data_ids.clear();
         }

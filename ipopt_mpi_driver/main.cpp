@@ -62,6 +62,8 @@ namespace {
         }
         std::cout << "\n" << std::endl;
     }
+
+    int max_iters = 5000;
 }
 
 int main(int argc, char* argv[]) {
@@ -85,6 +87,9 @@ int main(int argc, char* argv[]) {
 
         std::string path_str{argv[1]};
         std::filesystem::path path{path_str};
+
+        if (argc == 3)
+            max_iters = std::atoi(argv[2]);
 
         trots_problem = std::move(TROTSProblem{TROTSMatFileData{path}});
 
@@ -180,11 +185,19 @@ int main(int argc, char* argv[]) {
 
 
     if (world_rank == 0) {
+        int i = 0;
+        const std::vector<int>& idxs = rank_distrib_cons[1];
+        for (const int idx : idxs) {
+            const TROTSEntry& entry = trots_problem.constraint_entries[idx];
+            std::cout << "rank 0 nnz for entry " << i << ": " << entry.get_grad_nnz() << "\n";
+            ++i;
+        }
         Ipopt::SmartPtr<Ipopt::TNLP> tnlp =
             new TROTS_ipopt_mpi(std::move(trots_problem), rank_distrib_cons, std::move(rank_local_data));
         Ipopt::SmartPtr<Ipopt::IpoptApplication> app = new Ipopt::IpoptApplication();
         app->Options()->SetStringValue("hessian_approximation", "limited-memory");
         app->Options()->SetStringValue("derivative_test", "first-order");
+        app->Options()->SetIntegerValue("max_iter", max_iters);
         app->Initialize();
         app->OptimizeTNLP(tnlp);
     } else if (is_obj_rank) {

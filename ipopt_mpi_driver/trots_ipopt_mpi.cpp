@@ -128,6 +128,7 @@ bool TROTS_ipopt_mpi::eval_jac_g(
                                        rank_idxs.cbegin(), rank_idxs.cend());
         }
         int idx = 0;
+        int i = 0;
         for (int row : flattened_cons_idxs) {
             std::vector<int> col_idxs =
                 this->trots_problem->constraint_entries[row].get_grad_nonzero_idxs();
@@ -178,9 +179,7 @@ while (true) {
         MPI_Reduce(&obj_val_local, &obj_val, 1, MPI_DOUBLE, MPI_SUM, 0, obj_ranks_comm);
     } else {
         double* grad_buf = new double[local_data.num_vars];
-        if (rank == 0) {
-            std::fill(grad_buf, grad_buf + local_data.num_vars, 0.0);
-        }
+        std::fill(grad_buf, grad_buf + local_data.num_vars, 0.0);
         for (const TROTSEntry& entry : local_data.trots_entries) {
             entry.calc_gradient(&local_data.x_buffer[0], &local_data.grad_tmp[0]);
             for (int i = 0; i < local_data.num_vars; ++i) {
@@ -212,8 +211,6 @@ while (true) {
     MPI_Bcast(&grad_flag_local, 1, MPI_INT, 0, cons_ranks_comm);
     MPI_Bcast(&local_data.x_buffer[0], local_data.num_vars, MPI_DOUBLE, 0, cons_ranks_comm);
 
-    int* recv_counts = nullptr;
-    int* displacements = nullptr;
     if (!grad_flag_local) {
         std::vector<double> local_vals(local_data.trots_entries.size());
         int i = 0;
@@ -223,7 +220,7 @@ while (true) {
         }
         if (rank == 0) {
             ConsDistributionData& dist_data = distrib_data.value();
-            MPI_Gatherv(&local_vals[0], local_vals.size(), MPI_DOUBLE,
+            MPI_Gatherv(&local_vals[0], 0, MPI_DOUBLE,
                         cons_vals, &dist_data.recv_counts_g[0], &dist_data.recv_displacements_g[0],
                         MPI_DOUBLE, 0, cons_ranks_comm);
         } else {
@@ -241,7 +238,7 @@ while (true) {
         }
         if (rank == 0) {
             ConsDistributionData& dist_data = distrib_data.value();
-            MPI_Gatherv(local_buf, local_data.local_jac_nnz, MPI_DOUBLE, grad,
+            MPI_Gatherv(local_buf, 0, MPI_DOUBLE, grad,
                         &dist_data.recv_counts_jac[0], &dist_data.recv_displacements_jac[0],
                         MPI_DOUBLE, 0, cons_ranks_comm);
         } else {
