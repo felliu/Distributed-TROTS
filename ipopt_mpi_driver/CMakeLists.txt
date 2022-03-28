@@ -15,6 +15,8 @@ add_executable(ipopt_mpi_main
     rank_local_data.h
     sparse_matrix_transfers.cpp
     sparse_matrix_transfers.h
+    test_distrib.cpp
+    test_distrib.h
     trots_entry_transfers.cpp
     trots_entry_transfers.h
     trots_ipopt_mpi.cpp

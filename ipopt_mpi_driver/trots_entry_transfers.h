@@ -1,9 +1,9 @@
 #ifndef TROTS_ENTRY_TRANSFERS_H
 #define TROTS_ENTRY_TRANSFERS_H
 
-#include "TROTSEntry.h"
 
 struct LocalData;
+struct TROTSEntry;
 
 void distribute_trots_entries_send(const std::vector<TROTSEntry>& obj_entries,
                                    const std::vector<TROTSEntry>& cons_entries,

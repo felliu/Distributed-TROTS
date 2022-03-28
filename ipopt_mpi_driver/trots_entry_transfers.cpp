@@ -1,8 +1,11 @@
 #include <sstream>
 
+#include <iostream>
+
 #include <boost/archive/basic_binary_oarchive.hpp>
 
 #include "rank_local_data.h"
+#include "TROTSEntry.h"
 #include "trots_entry_transfers.h"
 #include "globals.h"
 
@@ -37,9 +40,9 @@ namespace {
     }
 
     void recv_entries_for_comm(LocalData& data, MPI_Comm comm) {
-        int num_matrices = 0;
-        MPI_Recv(&num_matrices, 1, MPI_INT, 0, NUM_ENTRIES_TAG, comm, MPI_STATUS_IGNORE);
-        for (int i = 0; i < num_matrices; ++i) {
+        int num_entries = 0;
+        MPI_Recv(&num_entries, 1, MPI_INT, 0, NUM_ENTRIES_TAG, comm, MPI_STATUS_IGNORE);
+        for (int i = 0; i < num_entries; ++i) {
             int num_bytes = probe_message_size(TROTS_ENTRY_TAG, comm, MPI_CHAR, 0);
             std::vector<char> buf(num_bytes);
             MPI_Recv(&buf[0], num_bytes, MPI_CHAR, 0, TROTS_ENTRY_TAG, comm, MPI_STATUS_IGNORE);

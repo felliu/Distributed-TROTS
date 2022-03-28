@@ -6,11 +6,13 @@
 
 #include "coin-or/IpIpoptApplication.hpp"
 
+
 #include "data_distribution.h"
 #include "globals.h"
 #include "rank_local_data.h"
 #include "sparse_matrix_transfers.h"
 #include "trots.h"
+#include "test_distrib.h"
 #include "trots_entry_transfers.h"
 #include "trots_ipopt_mpi.h"
 #include "debug_utils.h"
@@ -73,7 +75,6 @@ int main(int argc, char* argv[]) {
     std::vector<int> cons_ranks;
     std::vector<std::vector<int>> rank_distrib_obj;
     std::vector<std::vector<int>> rank_distrib_cons;
-    std::vector<int> cons_rank_jac_nnz;
     TROTSProblem trots_problem;
     LocalData rank_local_data;
     if (world_rank == 0) {
@@ -116,6 +117,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::tie(obj_ranks_comm, cons_ranks_comm) = split_obj_cons_comm(obj_ranks, cons_ranks);
+    const bool is_obj_rank = std::find(obj_ranks.begin(), obj_ranks.end(), world_rank) != obj_ranks.end();
+    const bool is_cons_rank = std::find(cons_ranks.begin(), cons_ranks.end(), world_rank) != cons_ranks.end();
 
     if (world_rank == 0) {
         int num_obj_ranks = 0;
@@ -139,15 +142,6 @@ int main(int argc, char* argv[]) {
             print_vector(v);
         }
 
-        //Initialize the array with the number of non-zeros per constraint rank
-        for (int cons_rank = 0; cons_rank < rank_distrib_cons.size(); ++cons_rank) {
-            int jac_nnz = 0;
-            const std::vector<int>& entry_idxs = rank_distrib_cons[cons_rank];
-            for (int idx : entry_idxs) {
-                jac_nnz += trots_problem.constraint_entries[idx].get_grad_nnz();
-            }
-            cons_rank_jac_nnz.push_back(jac_nnz);
-        }
         distribute_sparse_matrices_send(trots_problem, rank_distrib_obj, rank_distrib_cons);
     }
 
@@ -177,6 +171,12 @@ int main(int argc, char* argv[]) {
         show_rank_local_entries(i, rank_local_data);
         MPI_Barrier(MPI_COMM_WORLD);
     }*/
+    if (is_cons_rank)
+        test_trotsentry_distrib(rank_local_data, &rank_distrib_cons, &trots_problem.constraint_entries, cons_ranks_comm);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (is_obj_rank)
+        test_trotsentry_distrib(rank_local_data, &rank_distrib_obj, &trots_problem.objective_entries, obj_ranks_comm);
+    MPI_Barrier(MPI_COMM_WORLD);
 
 
     if (world_rank == 0) {
@@ -187,9 +187,9 @@ int main(int argc, char* argv[]) {
         app->Options()->SetStringValue("derivative_test", "first-order");
         app->Initialize();
         app->OptimizeTNLP(tnlp);
-    } else if (std::find(obj_ranks.begin(), obj_ranks.end(), world_rank) != obj_ranks.end()) {
+    } else if (is_obj_rank) {
         compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data);
-    } else if (std::find(cons_ranks.begin(), cons_ranks.end(), world_rank) != cons_ranks.end()) {
+    } else if (is_cons_rank) {
         compute_cons_vals_mpi(nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt);
     }
 

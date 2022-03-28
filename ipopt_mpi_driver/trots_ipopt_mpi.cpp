@@ -40,7 +40,10 @@ bool TROTS_ipopt_mpi::get_nlp_info(
 
     n = this->trots_problem->get_num_vars();
     m = this->trots_problem->get_num_constraints();
+    std::cout << "n: " << n << std::endl;
+    std::cout << "m: " << m << std::endl;
     nnz_jac_g = this->trots_problem->get_nnz_jac_cons();
+    std::cout << "nnz_jac_g: " << nnz_jac_g << std::endl;
     //Hessian is dense, but symmetric
     nnz_h_lag = n * n / 2;
     index_style = C_STYLE;
@@ -213,35 +216,39 @@ while (true) {
     int* displacements = nullptr;
     if (!grad_flag_local) {
         std::vector<double> local_vals(local_data.trots_entries.size());
-        for (int i = 0; i < local_vals.size(); ++i) {
-            local_vals[i] = local_data.trots_entries[i].calc_value(&local_data.x_buffer[0]);
+        int i = 0;
+        for (const TROTSEntry& entry : local_data.trots_entries) {
+            local_vals[i] = entry.calc_value(&local_data.x_buffer[0]);
+            ++i;
         }
         if (rank == 0) {
             ConsDistributionData& dist_data = distrib_data.value();
-            recv_counts = &dist_data.recv_counts_g[0];
-            displacements = &dist_data.recv_displacements_g[0];
+            MPI_Gatherv(&local_vals[0], local_vals.size(), MPI_DOUBLE,
+                        cons_vals, &dist_data.recv_counts_g[0], &dist_data.recv_displacements_g[0],
+                        MPI_DOUBLE, 0, cons_ranks_comm);
+        } else {
+            MPI_Gatherv(&local_vals[0], local_vals.size(), MPI_DOUBLE,
+                        nullptr, nullptr, nullptr, MPI_DOUBLE, 0, cons_ranks_comm);
         }
 
-        MPI_Gatherv(&local_vals[0], local_vals.size(), MPI_DOUBLE,
-                    cons_vals, recv_counts, displacements, MPI_DOUBLE, 0, cons_ranks_comm);
     } else {
         double* local_buf = new double[local_data.local_jac_nnz];
         int start_idx = 0;
-        std::cout << "local nnz: " << local_data.local_jac_nnz << "\n";
         for (const TROTSEntry& entry : local_data.trots_entries) {
             std::vector<double> vals = entry.calc_sparse_grad(&local_data.x_buffer[0]);
             std::copy(vals.cbegin(), vals.cend(), local_buf + start_idx);
             start_idx += vals.size();
-            std::cout << "start idx : " << start_idx << std::endl;
         }
         if (rank == 0) {
             ConsDistributionData& dist_data = distrib_data.value();
-            recv_counts = &dist_data.recv_counts_jac[0];
-            displacements = &dist_data.recv_displacements_jac[0];
+            MPI_Gatherv(local_buf, local_data.local_jac_nnz, MPI_DOUBLE, grad,
+                        &dist_data.recv_counts_jac[0], &dist_data.recv_displacements_jac[0],
+                        MPI_DOUBLE, 0, cons_ranks_comm);
+        } else {
+            MPI_Gatherv(local_buf, local_data.local_jac_nnz, MPI_DOUBLE, nullptr,
+                        nullptr, nullptr, MPI_DOUBLE, 0, cons_ranks_comm);
         }
 
-        MPI_Gatherv(local_buf, local_data.local_jac_nnz, MPI_DOUBLE, grad,
-                    recv_counts, displacements, MPI_DOUBLE, 0, cons_ranks_comm);
         delete[] local_buf;
     }
 
