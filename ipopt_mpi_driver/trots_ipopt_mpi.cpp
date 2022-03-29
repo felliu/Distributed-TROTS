@@ -2,6 +2,7 @@
 
 #include "debug_utils.h"
 #include "globals.h"
+#include "util.h"
 
 #include <iostream>
 #include <mpi.h>
@@ -156,6 +157,17 @@ void TROTS_ipopt_mpi::finalize_solution(
     int m, const double* g, const double* lambda, double obj,
     const Ipopt::IpoptData* ip_data, Ipopt::IpoptCalculatedQuantities* ip_cq) {
 
+    //Output to file: reuse code for dumping std::vector arrays to file
+    std::vector<double> x_vec;
+    x_vec.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        x_vec.push_back(x[i]);
+    }
+
+    dump_vector_to_file(x_vec, "out_mpi.bin");
+
+    std::cout << "IPOPT finalize_solution called\n";
+    std::cout << "Exit status: " << status << "\n";
 }
 
 double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data, bool done) {
