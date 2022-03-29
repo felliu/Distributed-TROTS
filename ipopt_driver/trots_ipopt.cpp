@@ -175,7 +175,6 @@ int ipopt_main_func(int argc, char* argv[]) {
     TROTSProblem trots_problem{TROTSMatFileData{path}};
     Ipopt::SmartPtr<Ipopt::TNLP> trots_nlp = new TROTS_ipopt(std::move(trots_problem));
     Ipopt::SmartPtr<Ipopt::IpoptApplication> app = IpoptApplicationFactory();
-    app->Options()->SetStringValue("linear_solver", "mumps");
     app->Options()->SetStringValue("hessian_approximation", "limited-memory");
     app->Options()->SetStringValue("mu_strategy", "adaptive");
     app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");

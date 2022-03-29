@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <mkl.h>
 
 #include <iostream>
 #include <filesystem>
@@ -72,6 +73,8 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     int num_ranks = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
+
+    mkl_set_num_threads(28);
 
     std::vector<int> obj_ranks;
     std::vector<int> cons_ranks;
@@ -191,6 +194,7 @@ int main(int argc, char* argv[]) {
         app->Options()->SetStringValue("hessian_approximation", "limited-memory");
         app->Options()->SetStringValue("mu_strategy", "adaptive");
         app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
+        app->Options()->SetStringValue("print_timing_statistics", "yes");
         //app->Options()->SetStringValue("derivative_test", "first-order");
         app->Options()->SetIntegerValue("max_iter", max_iters);
         app->Initialize();
