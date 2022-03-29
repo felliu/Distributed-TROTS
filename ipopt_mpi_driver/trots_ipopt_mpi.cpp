@@ -7,9 +7,9 @@
 #include <mpi.h>
 
 TROTS_ipopt_mpi::TROTS_ipopt_mpi(
-                    TROTSProblem&& problem,
-                    const std::vector<std::vector<int>>& cons_term_distribution,
-                    LocalData&& data) {
+        TROTSProblem&& problem,
+        const std::vector<std::vector<int>>& cons_term_distribution,
+        LocalData&& data) {
     this->trots_problem = std::make_unique<TROTSProblem>(std::move(problem));
     this->cons_term_distribution = cons_term_distribution;
     this->local_data = std::move(data);
