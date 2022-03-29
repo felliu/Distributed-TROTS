@@ -129,9 +129,10 @@ bool TROTS_ipopt_mpi::eval_jac_g(
         }
         int idx = 0;
         int i = 0;
-        for (int row : flattened_cons_idxs) {
+        for (int row = 0; row < flattened_cons_idxs.size(); ++row) {
+            const int cons_idx = flattened_cons_idxs[row];
             std::vector<int> col_idxs =
-                this->trots_problem->constraint_entries[row].get_grad_nonzero_idxs();
+                this->trots_problem->constraint_entries[cons_idx].get_grad_nonzero_idxs();
             for (int col : col_idxs) {
                 irow[idx] = row;
                 icol[idx] = col;

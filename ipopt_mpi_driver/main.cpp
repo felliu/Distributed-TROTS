@@ -196,7 +196,9 @@ int main(int argc, char* argv[]) {
             new TROTS_ipopt_mpi(std::move(trots_problem), rank_distrib_cons, std::move(rank_local_data));
         Ipopt::SmartPtr<Ipopt::IpoptApplication> app = new Ipopt::IpoptApplication();
         app->Options()->SetStringValue("hessian_approximation", "limited-memory");
-        app->Options()->SetStringValue("derivative_test", "first-order");
+        app->Options()->SetStringValue("mu_strategy", "adaptive");
+        app->Options()->SetStringValue("adaptive_mu_globalization", "kkt-error");
+        //app->Options()->SetStringValue("derivative_test", "first-order");
         app->Options()->SetIntegerValue("max_iter", max_iters);
         app->Initialize();
         app->OptimizeTNLP(tnlp);
