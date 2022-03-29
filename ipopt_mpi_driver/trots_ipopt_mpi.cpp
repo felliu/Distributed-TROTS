@@ -96,21 +96,21 @@ bool TROTS_ipopt_mpi::get_starting_point(
 
 bool TROTS_ipopt_mpi::eval_f(int n, const double* x, bool new_x, double& obj_val) {
     //std::cout << "Calculating f\n";
-    obj_val = compute_obj_vals_mpi(x, false, nullptr, this->local_data);
+    obj_val = compute_obj_vals_mpi(x, false, nullptr, this->local_data, false);
     //std::cout << "Done" << std::endl;
     return true;
 }
 
 bool TROTS_ipopt_mpi::eval_grad_f(int n, const double* x, bool new_x, double* grad_f) {
     //std::cout << "Calculating grad f\n";
-    compute_obj_vals_mpi(x, true, grad_f, this->local_data);
+    compute_obj_vals_mpi(x, true, grad_f, this->local_data, false);
     //std::cout << "Done" << std::endl;
     return true;
 }
 
 bool TROTS_ipopt_mpi::eval_g(int n, const double* x, bool new_x, int m, double* g) {
     //std::cout << "Calculating g\n";
-    compute_cons_vals_mpi(x, g, false, nullptr, this->local_data, std::make_optional(this->distrib_data));
+    compute_cons_vals_mpi(x, g, false, nullptr, this->local_data, std::make_optional(this->distrib_data), false);
     //std::cout << "Done" << std::endl;
     return true;
 }
@@ -144,7 +144,7 @@ bool TROTS_ipopt_mpi::eval_jac_g(
 
     else {
         compute_cons_vals_mpi(x, nullptr, true, vals,
-                              this->local_data, std::make_optional(this->distrib_data));
+                              this->local_data, std::make_optional(this->distrib_data), false);
     }
 
     return true;
@@ -158,11 +158,15 @@ void TROTS_ipopt_mpi::finalize_solution(
 
 }
 
-double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data) {
+double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data, bool done) {
 while (true) {
     MPI_Barrier(obj_ranks_comm);
     int rank;
     MPI_Comm_rank(obj_ranks_comm, &rank);
+    int done_flag = static_cast<int>(done);
+    MPI_Bcast(&done_flag, 1, MPI_INT, 0, obj_ranks_comm);
+    if (done_flag)
+        return 0.0;
     if (rank == 0) {
         std::copy(x, x + local_data.num_vars, local_data.x_buffer.begin());
         assert(local_data.trots_entries.empty());
@@ -198,11 +202,16 @@ while (true) {
 
 void compute_cons_vals_mpi(const double* x, double* cons_vals,
                            bool calc_grad, double* grad, LocalData& local_data,
-                           std::optional<ConsDistributionData> distrib_data) {
+                           std::optional<ConsDistributionData> distrib_data,
+                           bool done) {
 while (true) {
     MPI_Barrier(cons_ranks_comm);
     int rank;
     MPI_Comm_rank(cons_ranks_comm, &rank);
+    int done_flag = static_cast<int>(done);
+    MPI_Bcast(&done_flag, 1, MPI_INT, 0, cons_ranks_comm);
+    if (done_flag)
+        return;
     if (rank == 0) {
         assert(distrib_data.has_value());
         std::copy(x, x + local_data.num_vars, local_data.x_buffer.begin());

@@ -86,6 +86,7 @@ int main(int argc, char* argv[]) {
         if (argc < 2 || argc > 3) {
             std::cerr << "Usage: ./program <mat_file>\n"
                       << "\t./program <mat_file> <max_iters>\n";
+            return -1;
         }
 
         std::string path_str{argv[1]};
@@ -197,12 +198,16 @@ int main(int argc, char* argv[]) {
         app->Options()->SetStringValue("print_timing_statistics", "yes");
         //app->Options()->SetStringValue("derivative_test", "first-order");
         app->Options()->SetIntegerValue("max_iter", max_iters);
+        app->Options()->SetNumericValue("tol", 1e-9);
         app->Initialize();
         app->OptimizeTNLP(tnlp);
+        //Finally, get the objective and constraint ranks out of their infinite loops
+        compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data, true);
+        compute_cons_vals_mpi(nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt, true);
     } else if (is_obj_rank) {
-        compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data);
+        compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data, false);
     } else if (is_cons_rank) {
-        compute_cons_vals_mpi(nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt);
+        compute_cons_vals_mpi(nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt, false);
     }
 
     MPI_Finalize();
