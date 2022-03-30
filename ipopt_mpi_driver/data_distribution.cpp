@@ -7,7 +7,7 @@
 #include <mpi.h>
 
 #include "data_distribution.h"
-#include "debug_utils.h"
+#include "util.h"
 
 std::tuple<MPI_Comm, MPI_Comm>
 split_obj_cons_comm(const std::vector<int>& obj_ranks, const std::vector<int>& cons_ranks) {

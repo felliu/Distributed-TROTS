@@ -1,7 +1,7 @@
 #include "test_distrib.h"
 #include "TROTSEntry.h"
 
-#include "debug_utils.h"
+#include "util.h"
 
 #include <iostream>
 

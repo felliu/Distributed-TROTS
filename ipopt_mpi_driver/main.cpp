@@ -16,7 +16,7 @@
 #include "test_distrib.h"
 #include "trots_entry_transfers.h"
 #include "trots_ipopt_mpi.h"
-#include "debug_utils.h"
+#include "util.h"
 
 MPI_Comm obj_ranks_comm = MPI_COMM_NULL;
 MPI_Comm cons_ranks_comm = MPI_COMM_NULL;
