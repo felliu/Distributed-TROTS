@@ -203,10 +203,11 @@ int main(int argc, char* argv[]) {
 
 
     if (world_rank == 0) {
+        const int num_cons = trots_problem.get_num_constraints();
         Ipopt::SmartPtr<Ipopt::TNLP> tnlp =
             new TROTS_ipopt_mpi(std::move(trots_problem), rank_distrib_cons, std::move(rank_local_data));
 
-        calc_values_test(tnlp, rank_local_data.num_vars, trots_problem.get_num_constraints());
+        calc_values_test(tnlp, rank_local_data.num_vars, num_cons);
         Ipopt::SmartPtr<Ipopt::IpoptApplication> app = new Ipopt::IpoptApplication();
         app->Options()->SetStringValue("hessian_approximation", "limited-memory");
         app->Options()->SetStringValue("mu_strategy", "adaptive");

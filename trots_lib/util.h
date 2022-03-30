@@ -4,6 +4,7 @@
 #include <cassert>
 #include <fstream>
 #include <string>
+#include <iostream>
 #include <vector>
 #include <tuple>
 

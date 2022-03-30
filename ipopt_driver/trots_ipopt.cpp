@@ -6,7 +6,7 @@
 namespace {
     int max_iter = 20000;
 
-    void calc_values_test(Ipopt::SmartPtr<Ipopt::TNLP> tnlp, int n, int m) {
+    void calc_values_test(const Ipopt::SmartPtr<Ipopt::TNLP>& tnlp, int n, int m) {
         std::vector<double> x(n);
         for (int i = 0; i < n; ++i) {
             x[i] = 100.0;
@@ -98,6 +98,7 @@ bool TROTS_ipopt::get_starting_point(
             std::transform(LTCP_entries.cbegin(), LTCP_entries.cend(),
                            LTCP_vals.begin(), compute_obj_val);
         }
+        std::cout << "Initial x: " << x[0] << std::endl;
     }
 
     //We have no bounds, so these probably don't matter, set them to zero in case.
@@ -189,8 +190,10 @@ int ipopt_main_func(int argc, char* argv[]) {
     }
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
+    const int n = trots_problem.get_num_vars();
+    const int m = trots_problem.get_num_constraints();
     Ipopt::SmartPtr<Ipopt::TNLP> trots_nlp = new TROTS_ipopt(std::move(trots_problem));
-    calc_values_test(trots_nlp, trots_problem.get_num_vars(), trots_problem.get_num_constraints());
+    calc_values_test(trots_nlp, n, m);
     Ipopt::SmartPtr<Ipopt::IpoptApplication> app = IpoptApplicationFactory();
     app->Options()->SetStringValue("hessian_approximation", "limited-memory");
     app->Options()->SetStringValue("mu_strategy", "adaptive");
