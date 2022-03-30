@@ -87,7 +87,6 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     int num_ranks = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
-    std::cout << "rank: " << world_rank << std::endl;
 
     mkl_set_num_threads(28);
 
@@ -208,7 +207,6 @@ int main(int argc, char* argv[]) {
         Ipopt::SmartPtr<Ipopt::TNLP> tnlp =
             new TROTS_ipopt_mpi(std::move(trots_problem), rank_distrib_cons, std::move(rank_local_data));
 
-        calc_values_test(tnlp, rank_local_data.num_vars, num_cons);
         Ipopt::SmartPtr<Ipopt::IpoptApplication> app = new Ipopt::IpoptApplication();
         app->Options()->SetStringValue("hessian_approximation", "limited-memory");
         app->Options()->SetStringValue("mu_strategy", "adaptive");

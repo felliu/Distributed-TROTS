@@ -34,18 +34,32 @@ get_obj_cons_rank_idxs(const TROTSProblem& problem) {
     int num_ranks_world = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks_world);
 
+    int nnz_cons = 0;
+    int nnz_obj = 0;
+    for (const TROTSEntry& cons_entry : problem.constraint_entries) {
+        nnz_cons += cons_entry.get_nnz();
+    }
+    for (const TROTSEntry& obj_entry : problem.objective_entries) {
+        nnz_obj += obj_entry.get_nnz();
+    }
+    const int nnz_total = nnz_cons + nnz_obj;
+    const double cons_rank_frac = nnz_cons / static_cast<double>(nnz_total);
+    int num_cons_ranks = static_cast<int>(std::round(cons_rank_frac * num_ranks_world));
+    num_cons_ranks = std::min(num_cons_ranks, num_ranks_world - 2);
+    int num_obj_ranks = num_ranks_world - num_cons_ranks + 1;
     //Divide the ranks between ranks that will compute constraint values and
     //ranks that will compute objective values. The division will be such that all ranks
     //except rank 0 will be divided approximately equally between ranks calculating constraint
     //values and ranks calculating objective values
-    const int numerator = (num_ranks_world - 1) * num_constraints;
+    /*const int numerator = (num_ranks_world - 1) * num_constraints;
     const int denominator = num_constraints + num_objectives;
 
     //We also need to take care so that each of the groups gets at least one rank in addition to rank 0
     int tmp = std::max(static_cast<int>(std::round(numerator / static_cast<double>(denominator))), 1) + 1;
     int num_cons_ranks = std::min(tmp, num_ranks_world - 2);
-    std::cerr << "Cons ranks: " << num_cons_ranks << "\n";
     int num_obj_ranks = num_ranks_world - num_cons_ranks + 1;
+    */
+    std::cerr << "Cons ranks: " << num_cons_ranks << "\n";
     std::cerr << "Obj ranks: " << num_obj_ranks << "\n";
 
     std::vector<int> cons_ranks;
