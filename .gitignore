@@ -4,3 +4,5 @@ traces/*
 *.bin
 .vscode/*
 build/*
+*.txt
+*.sh
