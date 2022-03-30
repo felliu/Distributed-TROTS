@@ -96,7 +96,6 @@ bool TROTS_ipopt_mpi::get_starting_point(
             std::transform(LTCP_entries.cbegin(), LTCP_entries.cend(),
                            LTCP_vals.begin(), compute_obj_val);
         }
-        std::cout << "Initial x: " << x[0] << std::endl;
     }
 
     if (init_z) {
@@ -112,7 +111,7 @@ bool TROTS_ipopt_mpi::get_starting_point(
         }
     }
 
-    this->trots_problem->clear_mat_data();
+    //this->trots_problem->clear_mat_data();
     return true;
 }
 

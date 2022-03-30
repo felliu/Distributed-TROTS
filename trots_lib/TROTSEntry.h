@@ -109,8 +109,8 @@ private:
 
 template <typename Archive>
 void TROTSEntry::serialize(Archive& ar, const unsigned int version) {
-    this->matrix_ref = nullptr;
-    this->mean_vec_ref = nullptr;
+    //this->matrix_ref = nullptr;
+    //this->mean_vec_ref = nullptr;
     ar & num_vars;
     ar & id;
     ar & roi_name;
@@ -124,8 +124,8 @@ void TROTSEntry::serialize(Archive& ar, const unsigned int version) {
     ar & weight;
     ar & c;
     //These will lose their meaning when sent, but we will reset them on the other side
-    ar & matrix_ref;
-    ar & mean_vec_ref;
+    //ar & matrix_ref;
+    //ar & mean_vec_ref;
 
     ar & y_vec;
     ar & grad_tmp;
