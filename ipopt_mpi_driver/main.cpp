@@ -63,6 +63,20 @@ namespace {
         std::cout << "\n" << std::endl;
     }
 
+    void calc_values_test(Ipopt::SmartPtr<Ipopt::TNLP> tnlp, int n, int m) {
+        std::vector<double> x(n);
+        for (int i = 0; i < n; ++i) {
+            x[i] = 100.0;
+        }
+        double obj_val;
+        tnlp->eval_f(n, &x[0], false, obj_val);
+        std::vector<double> cons_vals(m);
+        tnlp->eval_g(n, &x[0], false, m, &cons_vals[0]);
+        std::cout << "Obj_val: " << obj_val << "\n";
+        std::cout << "Cons vals: ";
+        print_vector(cons_vals);
+    }
+
     int max_iters = 5000;
 }
 
@@ -185,15 +199,10 @@ int main(int argc, char* argv[]) {
 
 
     if (world_rank == 0) {
-        int i = 0;
-        const std::vector<int>& idxs = rank_distrib_cons[1];
-        for (const int idx : idxs) {
-            const TROTSEntry& entry = trots_problem.constraint_entries[idx];
-            std::cout << "rank 0 nnz for entry " << i << ": " << entry.get_grad_nnz() << "\n";
-            ++i;
-        }
         Ipopt::SmartPtr<Ipopt::TNLP> tnlp =
             new TROTS_ipopt_mpi(std::move(trots_problem), rank_distrib_cons, std::move(rank_local_data));
+
+        calc_values_test(tnlp, rank_local_data.num_vars, trots_problem.get_num_constraints());
         Ipopt::SmartPtr<Ipopt::IpoptApplication> app = new Ipopt::IpoptApplication();
         app->Options()->SetStringValue("hessian_approximation", "limited-memory");
         app->Options()->SetStringValue("derivative_test", "first-order");
