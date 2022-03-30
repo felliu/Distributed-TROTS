@@ -73,11 +73,31 @@ bool TROTS_ipopt_mpi::get_bounds_info(int n, double* x_l, double* x_u, int m, do
 bool TROTS_ipopt_mpi::get_starting_point(
     int n, bool init_x, double* x, bool init_z, double* z_l,
     double* z_u, int m, bool init_lambda, double* lambda) {
-
     if (init_x) {
+        std::vector<TROTSEntry> LTCP_entries;
+        std::copy_if(this->trots_problem->objective_entries.cbegin(),
+                     this->trots_problem->objective_entries.cend(),
+                     std::back_inserter(LTCP_entries),
+                     [](const TROTSEntry& e){ return e.function_type() == FunctionType::LTCP; });
+
         for (int i = 0; i < n; ++i) {
             x[i] = 100.0;
         }
+
+        const auto compute_obj_val = [x](const TROTSEntry& e) -> double {
+            return e.calc_value(x);
+        };
+        std::vector<double> LTCP_vals(LTCP_entries.size());
+        std::transform(LTCP_entries.cbegin(), LTCP_entries.cend(),
+                       LTCP_vals.begin(), compute_obj_val);
+        while (std::any_of(LTCP_vals.cbegin(), LTCP_vals.cend(), [](double v){ return v > 1500.0; })) {
+            for (int i = 0; i < n; ++i) {
+                x[i] *= 1.5;
+            }
+            std::transform(LTCP_entries.cbegin(), LTCP_entries.cend(),
+                           LTCP_vals.begin(), compute_obj_val);
+        }
+        std::cout << "Initial x: " << x[0] << std::endl;
     }
 
     if (init_z) {
@@ -92,6 +112,8 @@ bool TROTS_ipopt_mpi::get_starting_point(
             lambda[i] = 1.0;
         }
     }
+
+    this->trots_problem->clear_mat_data();
     return true;
 }
 
