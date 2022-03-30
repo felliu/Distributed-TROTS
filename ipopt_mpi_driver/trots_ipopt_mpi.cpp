@@ -1,6 +1,5 @@
 #include "trots_ipopt_mpi.h"
 
-#include "debug_utils.h"
 #include "globals.h"
 #include "util.h"
 
