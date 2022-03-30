@@ -89,6 +89,19 @@ csc_to_csr(int rows, int cols,
     return std::make_tuple(data_csr, col_idxs_csr, row_ptrs_csr);
 }
 
+template <typename T>
+void print_vector(const std::vector<T>& vec) {
+    if (vec.empty()) {
+        std::cout << "{}" << std::endl;
+        return;
+    }
+    std::cout << "{";
+    for (auto it = vec.cbegin(); it != (vec.cend() - 1); ++it)
+        std::cout << *it << ", ";
+
+    std::cout << vec[vec.size() - 1];
+    std::cout << "}" << std::endl;
+}
 
 std::string get_name_str(const matvar_t* name_var);
 

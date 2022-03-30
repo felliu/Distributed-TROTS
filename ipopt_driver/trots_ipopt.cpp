@@ -3,7 +3,23 @@
 
 #include "coin-or/IpIpoptApplication.hpp"
 
-static int max_iter = 20000;
+namespace {
+    int max_iter = 20000;
+
+    void calc_values_test(Ipopt::SmartPtr<Ipopt::TNLP> tnlp, int n, int m) {
+        std::vector<double> x(n);
+        for (int i = 0; i < n; ++i) {
+            x[i] = 100.0;
+        }
+        double obj_val;
+        tnlp->eval_f(n, &x[0], false, obj_val);
+        std::vector<double> cons_vals(m);
+        tnlp->eval_g(n, &x[0], false, m, &cons_vals[0]);
+        std::cout << "Obj_val: " << obj_val << "\n";
+        std::cout << "Cons vals: ";
+        print_vector(cons_vals);
+    }
+}
 
 TROTS_ipopt::TROTS_ipopt(TROTSProblem&& problem) {
     this->problem = std::make_unique<TROTSProblem>(std::move(problem));
@@ -174,6 +190,7 @@ int ipopt_main_func(int argc, char* argv[]) {
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
     Ipopt::SmartPtr<Ipopt::TNLP> trots_nlp = new TROTS_ipopt(std::move(trots_problem));
+    calc_values_test(trots_nlp, trots_problem.get_num_vars(), trots_problem.get_num_constraints());
     Ipopt::SmartPtr<Ipopt::IpoptApplication> app = IpoptApplicationFactory();
     app->Options()->SetStringValue("hessian_approximation", "limited-memory");
     app->Options()->SetStringValue("mu_strategy", "adaptive");
