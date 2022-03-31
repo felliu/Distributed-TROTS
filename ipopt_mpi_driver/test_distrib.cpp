@@ -41,3 +41,16 @@ void test_trotsentry_distrib(const LocalData& local_data,
         }
     }
 }
+
+void print_local_nnz_count(const LocalData& local_data) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int local_nnz = 0;
+    for (auto&& [id, mat] : local_data.matrices) {
+        local_nnz += mat->get_nnz();
+    }
+    for (auto&& [id, vec] : local_data.mean_vecs) {
+        local_nnz += vec.size();
+    }
+    std::cout << "World rank: " << rank << " nnz: " << local_nnz << std::endl;
+}

@@ -176,17 +176,7 @@ int main(int argc, char* argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
     init_local_data(rank_local_data);
     MPI_Barrier(MPI_COMM_WORLD);
-    /*for (int i = 0; i < num_ranks; ++i) {
-        show_rank_local_entries(i, rank_local_data);
-        MPI_Barrier(MPI_COMM_WORLD);
-    }*/
-    if (is_cons_rank)
-        test_trotsentry_distrib(rank_local_data, &rank_distrib_cons, &trots_problem.constraint_entries, cons_ranks_comm);
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (is_obj_rank)
-        test_trotsentry_distrib(rank_local_data, &rank_distrib_obj, &trots_problem.objective_entries, obj_ranks_comm);
-    MPI_Barrier(MPI_COMM_WORLD);
-
+    print_local_nnz_count(rank_local_data);
 
     if (world_rank == 0) {
         Ipopt::SmartPtr<Ipopt::TNLP> tnlp =

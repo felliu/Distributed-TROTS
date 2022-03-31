@@ -10,4 +10,5 @@ void test_trotsentry_distrib(const LocalData& local_data,
                              const std::vector<TROTSEntry>* entries,
                              MPI_Comm comm);
 
+void print_local_nnz_count(const LocalData& local_data);
 #endif
