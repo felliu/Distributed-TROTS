@@ -160,9 +160,6 @@ void distribute_sparse_matrices_send(
     //Post the sends for the data matrices
     distribute_matrices(trots_problem, obj_ranks_comm, data_id_buckets_obj_ranks);
     distribute_matrices(trots_problem, cons_ranks_comm, data_id_buckets_cons_ranks);
-
-    //We can now clear the matrices from rank 0;
-    trots_problem.clear_mat_data();
 }
 
 void receive_sparse_matrices(LocalData& local_data) {
