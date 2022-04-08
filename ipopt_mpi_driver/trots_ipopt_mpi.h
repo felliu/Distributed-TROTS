@@ -51,10 +51,12 @@ private:
     ConsDistributionData distrib_data;
 };
 
-double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data, bool done);
+double compute_vals_mpi(bool calc_obj, const double* x, double* cons_vals, bool calc_grad, double* grad,
+                    LocalData& local_data, std::optional<ConsDistributionData>, bool done);
+
+double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data);
 void compute_cons_vals_mpi(const double* x, double* cons_vals,
                            bool calc_grad, double* grad, LocalData& local_data,
-                           std::optional<ConsDistributionData> distrib_data,
-                           bool done);
+                           std::optional<ConsDistributionData> distrib_data);
 
 #endif

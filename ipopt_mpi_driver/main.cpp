@@ -18,8 +18,8 @@
 #include "trots_ipopt_mpi.h"
 #include "util.h"
 
-MPI_Comm obj_ranks_comm = MPI_COMM_NULL;
-MPI_Comm cons_ranks_comm = MPI_COMM_NULL;
+/*MPI_Comm obj_ranks_comm = MPI_COMM_NULL;
+MPI_Comm cons_ranks_comm = MPI_COMM_NULL;*/
 
 namespace {
     void show_rank_local_data(int rank, const LocalData& data) {
@@ -57,10 +57,18 @@ namespace {
         if (my_rank != rank)
             return;
 
-        std::cout << "TROTSentries for rank: " << my_rank << "\n";
+        /*std::cout << "TROTSentries for rank: " << my_rank << "\n";
         for (const TROTSEntry& entry : data.trots_entries) {
             std::cout << "TrotsEntry name: " << entry.get_roi_name() << "\n";
-        }
+        }*/
+        std::cout << "Objective entries for rank: " << my_rank << "\n";
+        for (const TROTSEntry& entry : data.obj_entries)
+            std::cout << "TrotsEntry name: " << entry.get_roi_name() << "\n";
+
+        std::cout << "Constraint entries for rank: " << my_rank << "\n";
+        for (const TROTSEntry& entry : data.cons_entries)
+            std::cout << "TrotsEntry name: " << entry.get_roi_name() << "\n";
+
         std::cout << "\n" << std::endl;
     }
 
@@ -90,8 +98,8 @@ int main(int argc, char* argv[]) {
 
     mkl_set_num_threads(28);
 
-    std::vector<int> obj_ranks;
-    std::vector<int> cons_ranks;
+    /*std::vector<int> obj_ranks;
+    std::vector<int> cons_ranks;*/
     std::vector<std::vector<int>> rank_distrib_obj;
     std::vector<std::vector<int>> rank_distrib_cons;
     TROTSProblem trots_problem;
@@ -111,53 +119,55 @@ int main(int argc, char* argv[]) {
 
         trots_problem = std::move(TROTSProblem{TROTSMatFileData{path}});
 
-        //Get the distribution between ranks to calculate terms of the objective
+        /*//Get the distribution between ranks to calculate terms of the objective
         //and constraints
-        std::tie(obj_ranks, cons_ranks) = get_obj_cons_rank_idxs(trots_problem);
+        std::tie(obj_ranks, cons_ranks) = get_obj_cons_rank_idxs(trots_problem);*/
 
 
         //Create the communicators:
         //Broadcast the rank distribution info to all other ranks
-        int sizes[] = {static_cast<int>(obj_ranks.size()),
-                       static_cast<int>(cons_ranks.size())};
+        /*int sizes[] = {static_cast<int>(obj_ranks.size()),
+                       static_cast<int>(cons_ranks.size())};*/
         //First send the sizes of the buffers
-        MPI_Bcast(&sizes[0], 2, MPI_INT, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&obj_ranks[0], obj_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&cons_ranks[0], cons_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);
+        //MPI_Bcast(&sizes[0], 2, MPI_INT, 0, MPI_COMM_WORLD);
+        /*MPI_Bcast(&obj_ranks[0], obj_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&cons_ranks[0], cons_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);*/
         rank_local_data.num_vars = trots_problem.get_num_vars();
         MPI_Bcast(&rank_local_data.num_vars, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     } else {
         //First involvement of other ranks: get the rank distribution info from rank 0
-        int sizes[2];
-        MPI_Bcast(&sizes[0], 2, MPI_INT, 0, MPI_COMM_WORLD);
-        obj_ranks.resize(sizes[0]);
-        cons_ranks.resize(sizes[1]);
+        /*int sizes[2];
+        MPI_Bcast(&sizes[0], 2, MPI_INT, 0, MPI_COMM_WORLD);*/
+        /*obj_ranks.resize(sizes[0]);
+        cons_ranks.resize(sizes[1]);*/
 
-        MPI_Bcast(&obj_ranks[0], sizes[0], MPI_INT, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&cons_ranks[0], sizes[1], MPI_INT, 0, MPI_COMM_WORLD);
+        /*MPI_Bcast(&obj_ranks[0], sizes[0], MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&cons_ranks[0], sizes[1], MPI_INT, 0, MPI_COMM_WORLD);*/
         MPI_Bcast(&rank_local_data.num_vars, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }
 
-    std::tie(obj_ranks_comm, cons_ranks_comm) = split_obj_cons_comm(obj_ranks, cons_ranks);
+    /*std::tie(obj_ranks_comm, cons_ranks_comm) = split_obj_cons_comm(obj_ranks, cons_ranks);
     const bool is_obj_rank = std::find(obj_ranks.begin(), obj_ranks.end(), world_rank) != obj_ranks.end();
-    const bool is_cons_rank = std::find(cons_ranks.begin(), cons_ranks.end(), world_rank) != cons_ranks.end();
+    const bool is_cons_rank = std::find(cons_ranks.begin(), cons_ranks.end(), world_rank) != cons_ranks.end();*/
 
     if (world_rank == 0) {
-        int num_obj_ranks = 0;
+        int num_ranks = 0;
+        MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
+        /*int num_obj_ranks = 0;
         MPI_Comm_size(obj_ranks_comm, &num_obj_ranks);
         int num_cons_ranks = 0;
-        MPI_Comm_size(cons_ranks_comm, &num_cons_ranks);
+        MPI_Comm_size(cons_ranks_comm, &num_cons_ranks);*/
 
         //Get a roughly even distribution of the matrices between the ranks, excluding rank 0
-        rank_distrib_obj = get_rank_distribution(trots_problem.objective_entries, num_obj_ranks);
+        rank_distrib_obj = get_rank_distribution(trots_problem.objective_entries, num_ranks);
         assert(rank_distrib_obj[0].empty());
         for (int i = 0; i < rank_distrib_obj.size();++i) {
             const auto& v = rank_distrib_obj[i];
             std::cout << "Rank " << i << " obj entries\n";
             print_vector(v);
         }
-        rank_distrib_cons = get_rank_distribution(trots_problem.constraint_entries, num_cons_ranks);
+        rank_distrib_cons = get_rank_distribution(trots_problem.constraint_entries, num_ranks);
         assert(rank_distrib_cons[0].empty());
         for (int i = 0; i < rank_distrib_cons.size();++i) {
             const auto& v = rank_distrib_cons[i];
@@ -208,12 +218,9 @@ int main(int argc, char* argv[]) {
         app->Initialize();
         app->OptimizeTNLP(tnlp);
         //Finally, get the objective and constraint ranks out of their infinite loops
-        compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data, true);
-        compute_cons_vals_mpi(nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt, true);
-    } else if (is_obj_rank) {
-        compute_obj_vals_mpi(nullptr, false, nullptr, rank_local_data, false);
-    } else if (is_cons_rank) {
-        compute_cons_vals_mpi(nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt, false);
+        compute_vals_mpi(true, nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt, true);
+    } else {
+        compute_vals_mpi(true, nullptr, nullptr, false, nullptr, rank_local_data, std::nullopt, false);
     }
 
     MPI_Finalize();

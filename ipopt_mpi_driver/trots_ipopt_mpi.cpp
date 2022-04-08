@@ -32,6 +32,11 @@ TROTS_ipopt_mpi::TROTS_ipopt_mpi(
         cumulative_sum_g += num_cons;
         cumulative_sum_jac_g += nnz_total;
     }
+
+    print_vector(this->distrib_data.recv_counts_g);
+    print_vector(this->distrib_data.recv_displacements_g);
+    print_vector(this->distrib_data.recv_counts_jac);
+    print_vector(this->distrib_data.recv_displacements_jac);
 }
 
 bool TROTS_ipopt_mpi::get_nlp_info(
@@ -117,21 +122,23 @@ bool TROTS_ipopt_mpi::get_starting_point(
 
 bool TROTS_ipopt_mpi::eval_f(int n, const double* x, bool new_x, double& obj_val) {
     //std::cout << "Calculating f\n";
-    obj_val = compute_obj_vals_mpi(x, false, nullptr, this->local_data, false);
+    obj_val = compute_vals_mpi(true, x, nullptr, false, nullptr,
+                               this->local_data, std::nullopt, false);
     //std::cout << "Done" << std::endl;
     return true;
 }
 
 bool TROTS_ipopt_mpi::eval_grad_f(int n, const double* x, bool new_x, double* grad_f) {
     //std::cout << "Calculating grad f\n";
-    compute_obj_vals_mpi(x, true, grad_f, this->local_data, false);
+    compute_vals_mpi(true, x, nullptr, true, grad_f, this->local_data, std::nullopt, false);
     //std::cout << "Done" << std::endl;
     return true;
 }
 
 bool TROTS_ipopt_mpi::eval_g(int n, const double* x, bool new_x, int m, double* g) {
     //std::cout << "Calculating g\n";
-    compute_cons_vals_mpi(x, g, false, nullptr, this->local_data, std::make_optional(this->distrib_data), false);
+    compute_vals_mpi(false, x, g, false, nullptr, this->local_data,
+                     std::make_optional(this->distrib_data), false);
     //std::cout << "Done" << std::endl;
     return true;
 }
@@ -164,8 +171,10 @@ bool TROTS_ipopt_mpi::eval_jac_g(
     }
 
     else {
-        compute_cons_vals_mpi(x, nullptr, true, vals,
-                              this->local_data, std::make_optional(this->distrib_data), false);
+        //std::cout << "Calculating jac g\n";
+        compute_vals_mpi(false, x, nullptr, true, vals,
+                         this->local_data, std::make_optional(this->distrib_data), false);
+        //std::cout << "Done" << std::endl;
     }
 
     return true;
@@ -190,73 +199,84 @@ void TROTS_ipopt_mpi::finalize_solution(
     std::cout << "Exit status: " << status << "\n";
 }
 
-double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data, bool done) {
-while (true) {
-    MPI_Barrier(obj_ranks_comm);
+double compute_vals_mpi(bool calc_obj, const double* x, double* cons_vals, bool calc_grad, double* grad,
+                        LocalData& local_data, std::optional<ConsDistributionData> distrib_data, bool done) {
+    while (true) {
+        MPI_Barrier(MPI_COMM_WORLD);
+        int done_flag = static_cast<int>(done);
+        MPI_Bcast(&done_flag, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        if (done_flag)
+            return 0.0;
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        double obj_val = 0;
+        int calc_obj_flag = static_cast<int>(calc_obj);
+        MPI_Bcast(&calc_obj, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        if (calc_obj) {
+            obj_val = compute_obj_vals_mpi(x, calc_grad, grad, local_data);
+        } else {
+            compute_cons_vals_mpi(x, cons_vals, calc_grad, grad, local_data, distrib_data);
+        }
+
+        if (rank == 0)
+            return obj_val;
+    }
+}
+
+double compute_obj_vals_mpi(const double* x, bool calc_grad, double* grad, LocalData& local_data) {
+    MPI_Barrier(MPI_COMM_WORLD);
     int rank;
-    MPI_Comm_rank(obj_ranks_comm, &rank);
-    int done_flag = static_cast<int>(done);
-    MPI_Bcast(&done_flag, 1, MPI_INT, 0, obj_ranks_comm);
-    if (done_flag)
-        return 0.0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (rank == 0) {
         std::copy(x, x + local_data.num_vars, local_data.x_buffer.begin());
-        assert(local_data.trots_entries.empty());
+        assert(local_data.obj_entries.empty());
     }
     int grad_flag_local = static_cast<int>(calc_grad);
-    MPI_Bcast(&grad_flag_local, 1, MPI_INT, 0, obj_ranks_comm);
-    MPI_Bcast(&local_data.x_buffer[0], local_data.num_vars, MPI_DOUBLE, 0, obj_ranks_comm);
+    MPI_Bcast(&grad_flag_local, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&local_data.x_buffer[0], local_data.num_vars, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     double obj_val_local = 0.0;
     double obj_val = 0.0;
     if (!grad_flag_local) {
-        for (const TROTSEntry& entry : local_data.trots_entries) {
+        for (const TROTSEntry& entry : local_data.obj_entries) {
             obj_val_local += entry.calc_value(&local_data.x_buffer[0]) * entry.get_weight();
         }
-        MPI_Reduce(&obj_val_local, &obj_val, 1, MPI_DOUBLE, MPI_SUM, 0, obj_ranks_comm);
+        MPI_Reduce(&obj_val_local, &obj_val, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     } else {
         double* grad_buf = new double[local_data.num_vars];
         std::fill(grad_buf, grad_buf + local_data.num_vars, 0.0);
-        for (const TROTSEntry& entry : local_data.trots_entries) {
+        for (const TROTSEntry& entry : local_data.obj_entries) {
             entry.calc_gradient(&local_data.x_buffer[0], &local_data.grad_tmp[0]);
             for (int i = 0; i < local_data.num_vars; ++i) {
                 grad_buf[i] += local_data.grad_tmp[i] * entry.get_weight();
             }
         }
-        MPI_Reduce(grad_buf, grad, local_data.num_vars, MPI_DOUBLE, MPI_SUM, 0, obj_ranks_comm);
+        MPI_Reduce(grad_buf, grad, local_data.num_vars, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         delete[] grad_buf;
     }
-
-    if (rank == 0)
-        return obj_val;
-} //All ranks in the communicator except rank 0 loop around here to wait for the next call to this function
+    return obj_val;
 }
+
 
 void compute_cons_vals_mpi(const double* x, double* cons_vals,
                            bool calc_grad, double* grad, LocalData& local_data,
-                           std::optional<ConsDistributionData> distrib_data,
-                           bool done) {
-while (true) {
-    MPI_Barrier(cons_ranks_comm);
+                           std::optional<ConsDistributionData> distrib_data) {
+    MPI_Barrier(MPI_COMM_WORLD);
     int rank;
-    MPI_Comm_rank(cons_ranks_comm, &rank);
-    int done_flag = static_cast<int>(done);
-    MPI_Bcast(&done_flag, 1, MPI_INT, 0, cons_ranks_comm);
-    if (done_flag)
-        return;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (rank == 0) {
         assert(distrib_data.has_value());
         std::copy(x, x + local_data.num_vars, local_data.x_buffer.begin());
     }
 
     int grad_flag_local = static_cast<int>(calc_grad);
-    MPI_Bcast(&grad_flag_local, 1, MPI_INT, 0, cons_ranks_comm);
-    MPI_Bcast(&local_data.x_buffer[0], local_data.num_vars, MPI_DOUBLE, 0, cons_ranks_comm);
+    MPI_Bcast(&grad_flag_local, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&local_data.x_buffer[0], local_data.num_vars, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     if (!grad_flag_local) {
-        std::vector<double> local_vals(local_data.trots_entries.size());
+        std::vector<double> local_vals(local_data.cons_entries.size());
         int i = 0;
-        for (const TROTSEntry& entry : local_data.trots_entries) {
+        for (const TROTSEntry& entry : local_data.cons_entries) {
             local_vals[i] = entry.calc_value(&local_data.x_buffer[0]);
             ++i;
         }
@@ -264,16 +284,16 @@ while (true) {
             ConsDistributionData& dist_data = distrib_data.value();
             MPI_Gatherv(&local_vals[0], 0, MPI_DOUBLE,
                         cons_vals, &dist_data.recv_counts_g[0], &dist_data.recv_displacements_g[0],
-                        MPI_DOUBLE, 0, cons_ranks_comm);
+                        MPI_DOUBLE, 0, MPI_COMM_WORLD);
         } else {
             MPI_Gatherv(&local_vals[0], local_vals.size(), MPI_DOUBLE,
-                        nullptr, nullptr, nullptr, MPI_DOUBLE, 0, cons_ranks_comm);
+                        nullptr, nullptr, nullptr, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         }
 
     } else {
         double* local_buf = new double[local_data.local_jac_nnz];
         int start_idx = 0;
-        for (const TROTSEntry& entry : local_data.trots_entries) {
+        for (const TROTSEntry& entry : local_data.cons_entries) {
             std::vector<double> vals = entry.calc_sparse_grad(&local_data.x_buffer[0]);
             std::copy(vals.cbegin(), vals.cend(), local_buf + start_idx);
             start_idx += vals.size();
@@ -282,18 +302,13 @@ while (true) {
             ConsDistributionData& dist_data = distrib_data.value();
             MPI_Gatherv(local_buf, 0, MPI_DOUBLE, grad,
                         &dist_data.recv_counts_jac[0], &dist_data.recv_displacements_jac[0],
-                        MPI_DOUBLE, 0, cons_ranks_comm);
+                        MPI_DOUBLE, 0, MPI_COMM_WORLD);
         } else {
             MPI_Gatherv(local_buf, local_data.local_jac_nnz, MPI_DOUBLE, nullptr,
-                        nullptr, nullptr, MPI_DOUBLE, 0, cons_ranks_comm);
+                        nullptr, nullptr, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         }
 
         delete[] local_buf;
     }
-
-    if (rank == 0)
-        return;
-
-}
 }
 

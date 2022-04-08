@@ -14,7 +14,8 @@ struct LocalData {
     std::unordered_map<int, std::unique_ptr<SparseMatrix<double>>> matrices;
     std::unordered_map<int, std::vector<double>> mean_vecs;
 
-    std::vector<TROTSEntry> trots_entries;
+    std::vector<TROTSEntry> obj_entries;
+    std::vector<TROTSEntry> cons_entries;
 
     int local_jac_nnz;
 

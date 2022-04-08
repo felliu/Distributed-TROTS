@@ -31,8 +31,8 @@ void test_trotsentry_distrib(const LocalData& local_data,
     }
     else {
         std::vector<int> local_data_ids;
-        for (int i = 0; i < local_data.trots_entries.size(); ++i) {
-            local_data_ids.push_back(local_data.trots_entries[i].get_id());
+        for (int i = 0; i < local_data.obj_entries.size(); ++i) {
+            local_data_ids.push_back(local_data.obj_entries[i].get_id());
         }
         data_ids.resize(local_data_ids.size());
         MPI_Recv(&data_ids[0], data_ids.size(), MPI_INT, 0, 0, comm, MPI_STATUS_IGNORE);
