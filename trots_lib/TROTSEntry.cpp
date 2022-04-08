@@ -79,8 +79,8 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     this->rhs = *static_cast<double*>(objective_var->data);
 
     //The RHS field shouldn't mean anything in particular for our use for objectives
-    if (!this->is_constraint())
-        this->rhs = 0;
+    /*if (!this->is_constraint())
+        this->rhs = 0;*/
 
     matvar_t* function_type = Mat_VarGetStructFieldByName(problem_struct_entry, "Type", 0);
     check_null(function_type, "Could not read the \"Type\" field from the problem struct\n");
@@ -112,8 +112,8 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     this->weight = *static_cast<double*>(weight_var->data);
     //We use a square difference approximation:
     //account for this when weighting objectives by squaring the weight too.
-    if (this->type == FunctionType::Min || this->type == FunctionType::Max)
-        this->weight = this->weight * this->weight;
+    /*if (this->type == FunctionType::Min || this->type == FunctionType::Max)
+        this->weight = this->weight * this->weight;*/
 
     std::cerr << "Weight: " << this->weight << "\n";
 
