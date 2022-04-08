@@ -67,11 +67,7 @@ void distribute_trots_entries_send(const std::vector<TROTSEntry>& obj_entries,
                                    const std::vector<std::vector<int>>& rank_distrib_obj,
                                    const std::vector<std::vector<int>>& rank_distrib_cons) {
 
-    //When this function is called,
-    //the objective and constraint rank communicators should have been initialized already
-
     //This function should only be called by rank 0
-    //Check that we're rank zero on all communicators
     int world_rank = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
@@ -82,7 +78,6 @@ void distribute_trots_entries_send(const std::vector<TROTSEntry>& obj_entries,
 }
 
 void recv_trots_entries(LocalData& data) {
-    //We need to be part of at least one of the objective or constraints communicators
     recv_entries_for_comm(data, MPI_COMM_WORLD, true);
     recv_entries_for_comm(data, MPI_COMM_WORLD, false);
 }

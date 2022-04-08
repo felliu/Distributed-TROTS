@@ -37,7 +37,9 @@ public:
     from_CSC_mat(int nnz, int rows, int cols,
                  const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs);
 
-    explicit EigenSparseMat(int rows, int cols) : mat(rows, cols) {}
+    explicit EigenSparseMat(int rows, int cols) : mat(rows, cols) {
+        Eigen::setNbThreads(28);
+    }
 
     int get_rows() const override { return this->mat.rows(); }
     int get_cols() const override { return this->mat.cols(); }
