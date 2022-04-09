@@ -27,6 +27,22 @@ namespace {
 
         return triplets;
     }
+
+    template <typename T>
+    std::vector<Eigen::Triplet<T, int>>
+    csr_to_triplet(int rows, int cols,
+                   const T* vals, const int* col_idxs, const int* row_ptrs) {
+        const int nnz = row_ptrs[rows];
+        std::vector<Eigen::Triplet<T>> triplets;
+        triplets.reserve(nnz);
+
+        for (int row = 0; row < rows; ++row)
+            for (int idx = row_ptrs[row]; idx < row_ptrs[row + 1]; ++idx) {
+                triplets.push_back(Eigen::Triplet<double, int>(row, col_idxs[idx], vals[idx]));
+            }
+
+        return triplets;
+    }
 }
 
 template <typename T>
@@ -36,6 +52,11 @@ public:
     static std::unique_ptr<SparseMatrix<T>>
     from_CSC_mat(int nnz, int rows, int cols,
                  const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs);
+
+    template <typename IdxType>
+    static std::unique_ptr<SparseMatrix<T>>
+    from_CSR_mat(int nnz, int rows, int cols,
+                 const T* vals, const IdxType* col_idxs, const IdxType* row_ptrs);
 
     explicit EigenSparseMat(int rows, int cols) : mat(rows, cols) {
         Eigen::setNbThreads(28);
@@ -77,6 +98,32 @@ EigenSparseMat<T>::from_CSC_mat(
 
     std::vector<Eigen::Triplet<T>> triplets =
         csc_to_triplet(rows, cols, vals, &row_idxs_int[0], &col_ptrs_int[0]);
+
+    mat_ptr->mat.setFromTriplets(triplets.cbegin(), triplets.cend());
+    return std::unique_ptr<EigenSparseMat<T>>(mat_ptr);
+}
+
+template <typename T>
+template <typename IdxType>
+std::unique_ptr<SparseMatrix<T>>
+EigenSparseMat<T>::from_CSR_mat(
+    int nnz, int rows, int cols,
+    const T* vals, const IdxType* col_idxs, const IdxType* row_ptrs) {
+
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+    EigenSparseMat<T>* mat_ptr = new EigenSparseMat<T>(rows, cols);
+    std::vector<int> col_idxs_int;
+    std::vector<int> row_ptrs_int;
+    col_idxs_int.reserve(nnz);
+    row_ptrs_int.reserve(cols + 1);
+
+    std::transform(col_idxs, col_idxs + nnz, std::back_inserter(col_idxs_int),
+                   [](IdxType i) { return static_cast<int>(i); });
+    std::transform(row_ptrs, row_ptrs + rows + 1, std::back_inserter(row_ptrs_int),
+                   [](IdxType i) { return static_cast<int>(i); });
+
+    std::vector<Eigen::Triplet<T>> triplets =
+        csc_to_triplet(rows, cols, vals, &col_idxs_int[0], &row_ptrs_int[0]);
 
     mat_ptr->mat.setFromTriplets(triplets.cbegin(), triplets.cend());
     return std::unique_ptr<EigenSparseMat<T>>(mat_ptr);

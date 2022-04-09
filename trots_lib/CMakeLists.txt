@@ -36,14 +36,11 @@ target_include_directories(trots_lib PUBLIC
     .
 )
 
-target_link_libraries(trots_lib PUBLIC matio::matio Boost::serialization)
+target_link_libraries(trots_lib PUBLIC matio::matio Boost::serialization OpenMP::OpenMP_CXX)
 
 if (${USE_MKL})
     target_compile_options(trots_lib PUBLIC ${MKL_COMPILE_OPTIONS})
     target_compile_definitions(trots_lib PUBLIC MKL_LP64 USE_MKL)
     target_include_directories(trots_lib PUBLIC ${MKL_INCLUDE_DIRS})
     target_link_libraries(trots_lib PUBLIC ${MKL_LINK_FLAGS})
-else ()
-    find_package(OpenMP REQUIRED)
-    target_link_libraries(trots_lib PUBLIC OpenMP::OpenMPI_CXX)
 endif()

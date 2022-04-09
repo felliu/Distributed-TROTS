@@ -46,7 +46,6 @@ void time_obj_func(const TROTSProblem& problem, const std::vector<double>& x) {
 }
 
 int main(int argc, char* argv[]) {
-    mkl_set_num_threads(28);
     if (argc != 2) {
         std::cout << "Usage: ./<program> <TROTS_mat_file>\n";
         return -1;

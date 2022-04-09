@@ -1,13 +1,18 @@
 #include "data_distribution.h"
 #include "globals.h"
-#include "MKL_sparse_matrix.h"
 #include "rank_local_data.h"
 #include "sparse_matrix_transfers.h"
 #include "trots.h"
 
-#include <mpi.h>
+#include <iostream>
 #include <vector>
 #include <unordered_set>
+
+#ifdef USE_MKL
+#include "MKL_sparse_matrix.h"
+#else
+#include "EigenSparseMat.h"
+#endif
 
 namespace {
     int probe_message_size(enum MPIMessageTags tag, MPI_Comm communicator, MPI_Datatype type, int rank) {
@@ -88,10 +93,16 @@ namespace {
                 MPI_Recv(data_buffer, nnz, MPI_DOUBLE, 0, CSR_DATA_TAG, communicator, MPI_STATUS_IGNORE);
                 MPI_Recv(col_idxs_buffer, nnz, MPI_INT, 0, CSR_COL_INDS_TAG, communicator, MPI_STATUS_IGNORE);
                 MPI_Recv(row_ptrs_buffer, num_rows + 1, MPI_INT, 0, CSR_ROW_PTRS_TAG, communicator, MPI_STATUS_IGNORE);
-
+#ifdef USE_MKL
                 std::unique_ptr<SparseMatrix<double>> mat =
                     MKL_sparse_matrix<double>::from_CSR_mat(nnz, num_rows, num_cols,
                         data_buffer, col_idxs_buffer, row_ptrs_buffer);
+#else
+
+                std::unique_ptr<SparseMatrix<double>> mat =
+                    EigenSparseMat<double>::from_CSR_mat(nnz, num_rows, num_cols,
+                        data_buffer, col_idxs_buffer, row_ptrs_buffer);
+#endif
                 local_data.matrices.insert(
                     {data_id, std::move(mat)}
                 );

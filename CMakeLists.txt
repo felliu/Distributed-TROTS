@@ -5,6 +5,7 @@ find_package(HDF5 MODULE REQUIRED)
 set(MKL_INTERFACE lp64)
 
 find_package(MKL CONFIG)
+find_package(OpenMP REQUIRED)
 message(STATUS "${MKL_IMPORTED_TARGETS}") #Provides available list of targets based on input
 #In case we cannot find MKL through the cmake config
 #assume we still can find it on the linker's search path and just

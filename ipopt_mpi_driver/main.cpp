@@ -1,5 +1,4 @@
 #include <mpi.h>
-#include <mkl.h>
 
 #include <iostream>
 #include <filesystem>
@@ -96,7 +95,6 @@ int main(int argc, char* argv[]) {
     int num_ranks = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-    mkl_set_num_threads(28);
 
     /*std::vector<int> obj_ranks;
     std::vector<int> cons_ranks;*/

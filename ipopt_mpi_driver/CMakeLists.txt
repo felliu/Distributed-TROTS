@@ -23,6 +23,10 @@ add_executable(ipopt_mpi_main
     trots_ipopt_mpi.h
 )
 
+if (USE_MKL)
+    target_compile_definitions(ipopt_mpi_main PRIVATE USE_MKL)
+endif()
+
 target_compile_features(ipopt_mpi_main PUBLIC cxx_std_17)
 set_target_properties(ipopt_mpi_main
     PROPERTIES
