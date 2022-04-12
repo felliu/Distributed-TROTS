@@ -1,6 +1,8 @@
 #include "trots.h"
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 
 constexpr int N = 10;
@@ -45,6 +47,31 @@ void time_obj_func(const TROTSProblem& problem, const std::vector<double>& x) {
     std::cout << "total time avg: " << avg_time_total_ms << " ms\n";
 }
 
+void dump_nnz_counts(const TROTSProblem& trots_problem,
+                     const std::filesystem::path& cons_nnz_path,
+                     const std::filesystem::path& obj_nnz_path) {
+    std::vector<int> nnz_cons;
+    std::vector<int> nnz_obj;
+    for (const TROTSEntry& cons_entry : trots_problem.constraint_entries) {
+        nnz_cons.push_back(cons_entry.get_nnz());
+    }
+    for (const TROTSEntry& obj_entry : trots_problem.constraint_entries) {
+        nnz_obj.push_back(obj_entry.get_nnz());
+    }
+
+    std::ofstream cons_stream{cons_nnz_path};
+    for (int i  = 0; i < nnz_cons.size() - 1; ++i) {
+        cons_stream << nnz_cons[i] << ", ";
+    }
+    cons_stream << nnz_cons[nnz_cons.size() - 1] << "\n";
+
+    std::ofstream obj_stream{obj_nnz_path};
+    for (int i  = 0; i < nnz_obj.size() - 1; ++i) {
+        obj_stream << nnz_obj[i] << ", ";
+    }
+    obj_stream << nnz_obj[nnz_obj.size() - 1] << "\n";
+}
+
 int main(int argc, char* argv[]) {
     mkl_set_num_threads(28);
     if (argc != 2) {
@@ -56,6 +83,7 @@ int main(int argc, char* argv[]) {
     std::filesystem::path path{path_str};
 
     TROTSProblem trots_problem{TROTSMatFileData{path}};
+    dump_nnz_counts(trots_problem, "cons_nnz.csv", "obj_nnz.csv");
     std::vector<double> x = init_x(trots_problem);
     time_obj_func(trots_problem, x);
     return 0;
