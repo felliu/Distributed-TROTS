@@ -168,7 +168,7 @@ void TROTS_ipopt::finalize_solution(Ipopt::SolverReturn status, int n,
         x_vec.push_back(x[i]);
     }
 
-    dump_vector_to_file(x_vec, "hn_01_ipopt_serial_mkl.bin");
+    dump_vector_to_file(x_vec, "mod_rhs_new.bin");
 
     std::cout << "IPOPT finalize_solution called\n";
     std::cout << "Exit status: " << status << "\n";
