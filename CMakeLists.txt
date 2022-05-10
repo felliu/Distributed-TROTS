@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(trots_benchmark LANGUAGES CXX C)
-find_package(HDF5 MODULE REQUIRED)
 set(MKL_INTERFACE lp64)
 
 find_package(MKL CONFIG)
