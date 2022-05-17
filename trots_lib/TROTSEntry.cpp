@@ -8,7 +8,9 @@
 
 #include <matio.h>
 
+#ifdef USE_MKL
 #include "MKL_sparse_matrix.h"
+#endif
 #include "TROTSEntry.h"
 #include "util.h"
 
@@ -78,10 +80,6 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     check_null(objective_var, "Could not read Objective field from struct\n");
     this->rhs = *static_cast<double*>(objective_var->data);
 
-    //The RHS field shouldn't mean anything in particular for our use for objectives
-    /*if (!this->is_constraint())
-        this->rhs = 0;*/
-
     matvar_t* function_type = Mat_VarGetStructFieldByName(problem_struct_entry, "Type", 0);
     check_null(function_type, "Could not read the \"Type\" field from the problem struct\n");
     int TROTS_type = cast_from_double<int>(function_type);
@@ -114,8 +112,6 @@ TROTSEntry::TROTSEntry(matvar_t* problem_struct_entry, matvar_t* matrix_struct,
     //account for this when weighting objectives by squaring the weight too.
     /*if (this->type == FunctionType::Min || this->type == FunctionType::Max)
         this->weight = this->weight * this->weight;*/
-
-    std::cerr << "Weight: " << this->weight << "\n";
 
     matvar_t* parameters_var = Mat_VarGetStructFieldByName(problem_struct_entry, "Parameters", 0);
     check_null(parameters_var, "Could not read the \"Parameters\" field from the problem struct.\n");
@@ -223,7 +219,16 @@ double TROTSEntry::calc_min(const double* x) const {
 }
 
 double TROTSEntry::calc_mean(const double* x) const {
-    return cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
+    double val = 0.0;
+#ifdef USE_MKL
+    val = cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
+#else
+    #pragma omp parallel for schedule(static)
+        for (int i = 0; i < this->mean_vec_ref->size(); ++i) {
+            val += (*this->mean_vec_ref)[i] * x[i];
+        }
+#endif
+    return val;
 }
 
 double TROTSEntry::calc_LTCP(const double* x, bool cached_dose) const {
@@ -258,13 +263,13 @@ double TROTSEntry::calc_gEUD(const double* x, bool cached_dose) const {
     return val;
 }
 
-double TROTSEntry::quadratic_penalty_mean(const double* x) const {
+/*double TROTSEntry::quadratic_penalty_mean(const double* x) const {
     const double mean = cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
     const double diff = this->minimise ?
                             std::max(mean - this->rhs, 0.0) :
                             std::min(mean - this->rhs, 0.0);
     return diff * diff;
-}
+}*/
 
 double TROTSEntry::quadratic_penalty_min(const double* x, bool cached_dose) const {
     if (!cached_dose)
@@ -355,14 +360,14 @@ void TROTSEntry::mean_grad(const double* x, double* grad) const {
     std::copy(this->mean_vec_ref->cbegin(), this->mean_vec_ref->cend(), grad);
 }
 
-void TROTSEntry::quad_mean_grad(const double* x, double* grad) const {
+/*void TROTSEntry::quad_mean_grad(const double* x, double* grad) const {
     const double mean = cblas_ddot(this->mean_vec_ref->size(), x, 1, &(*this->mean_vec_ref)[0], 1);
     for (int i = 0; i < num_vars; ++i) {
         const double tmp = this->minimise ? std::max(mean - this->rhs, 0.0) :
                                             std::min(mean - this->rhs, 0.0);
         grad[i] = 2.0 * (*this->mean_vec_ref)[i] * tmp;
     }
-}
+}*/
 
 void TROTSEntry::LTCP_grad(const double* x, double* grad, bool cached_dose) const {
     const auto num_voxels = this->matrix_ref->get_rows();

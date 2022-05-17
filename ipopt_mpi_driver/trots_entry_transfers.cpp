@@ -39,7 +39,7 @@ namespace {
         }
     }
 
-    void recv_entries_for_comm(LocalData& data, MPI_Comm comm) {
+    void recv_entries_for_comm(LocalData& data, MPI_Comm comm, bool objective_entries) {
         int num_entries = 0;
         MPI_Recv(&num_entries, 1, MPI_INT, 0, NUM_ENTRIES_TAG, comm, MPI_STATUS_IGNORE);
         for (int i = 0; i < num_entries; ++i) {
@@ -53,7 +53,10 @@ namespace {
             TROTSEntry new_entry;
             iarchive >> new_entry;
 
-            data.trots_entries.push_back(new_entry);
+            if (objective_entries)
+                data.obj_entries.push_back(new_entry);
+            else
+                data.cons_entries.push_back(new_entry);
         }
     }
 }
@@ -64,35 +67,18 @@ void distribute_trots_entries_send(const std::vector<TROTSEntry>& obj_entries,
                                    const std::vector<std::vector<int>>& rank_distrib_obj,
                                    const std::vector<std::vector<int>>& rank_distrib_cons) {
 
-    //When this function is called,
-    //the objective and constraint rank communicators should have been initialized already
-    assert(obj_ranks_comm != MPI_COMM_NULL && cons_ranks_comm != MPI_COMM_NULL);
-
     //This function should only be called by rank 0
-    //Check that we're rank zero on all communicators
     int world_rank = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    int obj_comm_rank = 1;
-    MPI_Comm_rank(obj_ranks_comm, &obj_comm_rank);
-    int cons_comm_rank = 1;
-    MPI_Comm_rank(cons_ranks_comm, &cons_comm_rank);
 
     assert(world_rank == 0);
-    assert(obj_comm_rank == 0);
-    assert(cons_comm_rank == 0);
 
-    distribute_trots_entries_comm(obj_entries, rank_distrib_obj, obj_ranks_comm);
-    distribute_trots_entries_comm(cons_entries, rank_distrib_cons, cons_ranks_comm);
+    distribute_trots_entries_comm(obj_entries, rank_distrib_obj, MPI_COMM_WORLD);
+    distribute_trots_entries_comm(cons_entries, rank_distrib_cons, MPI_COMM_WORLD);
 }
 
 void recv_trots_entries(LocalData& data) {
-    //We need to be part of at least one of the objective or constraints communicators
-    assert(obj_ranks_comm != MPI_COMM_NULL || cons_ranks_comm != MPI_COMM_NULL);
-    if (obj_ranks_comm != MPI_COMM_NULL) {
-        recv_entries_for_comm(data, obj_ranks_comm);
-    }
-    if (cons_ranks_comm != MPI_COMM_NULL) {
-        recv_entries_for_comm(data, cons_ranks_comm);
-    }
+    recv_entries_for_comm(data, MPI_COMM_WORLD, true);
+    recv_entries_for_comm(data, MPI_COMM_WORLD, false);
 }
 

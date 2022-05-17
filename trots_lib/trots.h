@@ -7,7 +7,9 @@
 #include <variant>
 #include <vector>
 
+#ifdef USE_MKL
 #include <mkl.h>
+#endif
 
 #include "trots_matfile_data.h"
 #include "SparseMat.h"

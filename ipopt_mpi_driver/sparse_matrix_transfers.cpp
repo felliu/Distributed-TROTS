@@ -1,13 +1,18 @@
 #include "data_distribution.h"
 #include "globals.h"
-#include "MKL_sparse_matrix.h"
 #include "rank_local_data.h"
 #include "sparse_matrix_transfers.h"
 #include "trots.h"
 
-#include <mpi.h>
+#include <iostream>
 #include <vector>
 #include <unordered_set>
+
+#ifdef USE_MKL
+#include "MKL_sparse_matrix.h"
+#else
+#include "EigenSparseMat.h"
+#endif
 
 namespace {
     int probe_message_size(enum MPIMessageTags tag, MPI_Comm communicator, MPI_Datatype type, int rank) {
@@ -88,10 +93,16 @@ namespace {
                 MPI_Recv(data_buffer, nnz, MPI_DOUBLE, 0, CSR_DATA_TAG, communicator, MPI_STATUS_IGNORE);
                 MPI_Recv(col_idxs_buffer, nnz, MPI_INT, 0, CSR_COL_INDS_TAG, communicator, MPI_STATUS_IGNORE);
                 MPI_Recv(row_ptrs_buffer, num_rows + 1, MPI_INT, 0, CSR_ROW_PTRS_TAG, communicator, MPI_STATUS_IGNORE);
-
+#ifdef USE_MKL
                 std::unique_ptr<SparseMatrix<double>> mat =
                     MKL_sparse_matrix<double>::from_CSR_mat(nnz, num_rows, num_cols,
                         data_buffer, col_idxs_buffer, row_ptrs_buffer);
+#else
+
+                std::unique_ptr<SparseMatrix<double>> mat =
+                    EigenSparseMat<double>::from_CSR_mat(nnz, num_rows, num_cols,
+                        data_buffer, col_idxs_buffer, row_ptrs_buffer);
+#endif
                 local_data.matrices.insert(
                     {data_id, std::move(mat)}
                 );
@@ -123,52 +134,35 @@ void distribute_sparse_matrices_send(
         TROTSProblem& trots_problem,
         const std::vector<std::vector<int>>& rank_distrib_obj,
         const std::vector<std::vector<int>>& rank_distrib_cons) {
-    //When this function is called,
-    //the objective and constraint rank communicators should have been initialized already
-    assert(obj_ranks_comm != MPI_COMM_NULL && cons_ranks_comm != MPI_COMM_NULL);
-
-    //Check that we're rank zero on all communicators
+    //Check that we're rank 0
     int world_rank = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    int obj_comm_rank = 1;
-    MPI_Comm_rank(obj_ranks_comm, &obj_comm_rank);
-    int cons_comm_rank = 1;
-    MPI_Comm_rank(cons_ranks_comm, &cons_comm_rank);
-
+    int num_ranks = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
     assert(world_rank == 0);
-    assert(obj_comm_rank == 0);
-    assert(cons_comm_rank == 0);
 
     //Step 1: post the sends for the data matrices to the correct ranks.
     //Figure out which matrix goes where
-    std::vector<std::unordered_set<int>> data_id_buckets_obj_ranks(rank_distrib_obj.size());
-    std::vector<std::unordered_set<int>> data_id_buckets_cons_ranks(rank_distrib_cons.size());
-    for (int i = 0; i < rank_distrib_obj.size(); ++i) {
+    std::vector<std::unordered_set<int>> data_id_buckets(num_ranks);
+    for (int i = 0; i < num_ranks; ++i) {
         const std::vector<int>& entry_idxs = rank_distrib_obj[i];
         for (const int entry_idx : entry_idxs) {
             const int data_id = trots_problem.objective_entries[entry_idx].get_id();
-            data_id_buckets_obj_ranks[i].insert(data_id);
+            data_id_buckets[i].insert(data_id);
         }
     }
-    for (int i = 0; i < rank_distrib_cons.size(); ++i) {
+    for (int i = 0; i < num_ranks; ++i) {
         const std::vector<int>& entry_idxs = rank_distrib_cons[i];
         for (const int entry_idx : entry_idxs) {
             const int data_id = trots_problem.constraint_entries[entry_idx].get_id();
-            data_id_buckets_cons_ranks[i].insert(data_id);
+            data_id_buckets[i].insert(data_id);
         }
     }
+
     //Post the sends for the data matrices
-    distribute_matrices(trots_problem, obj_ranks_comm, data_id_buckets_obj_ranks);
-    distribute_matrices(trots_problem, cons_ranks_comm, data_id_buckets_cons_ranks);
+    distribute_matrices(trots_problem, MPI_COMM_WORLD, data_id_buckets);
 }
 
 void receive_sparse_matrices(LocalData& local_data) {
-    //We need to be a part of atleast one of the obj / cons communicators
-    assert(obj_ranks_comm != MPI_COMM_NULL || cons_ranks_comm != MPI_COMM_NULL);
-    if (obj_ranks_comm != MPI_COMM_NULL) {
-        recv_matrices_for_comm(local_data, obj_ranks_comm);
-    }
-    if (cons_ranks_comm != MPI_COMM_NULL) {
-        recv_matrices_for_comm(local_data, cons_ranks_comm);
-    }
+    recv_matrices_for_comm(local_data, MPI_COMM_WORLD);
 }

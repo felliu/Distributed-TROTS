@@ -179,6 +179,7 @@ template <typename IdxType>
 std::unique_ptr<SparseMatrix<T>>
 MKL_sparse_matrix<T>::from_CSC_mat(int nnz, int rows, int cols, const T* vals, const IdxType* row_idxs, const IdxType* col_ptrs) {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
     MKL_sparse_matrix<T>* mat = new MKL_sparse_matrix<T>();
 
     std::vector<int> row_idxs_int;

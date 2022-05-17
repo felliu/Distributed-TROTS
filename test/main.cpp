@@ -73,7 +73,6 @@ void dump_nnz_counts(const TROTSProblem& trots_problem,
 }
 
 int main(int argc, char* argv[]) {
-    mkl_set_num_threads(28);
     if (argc != 2) {
         std::cout << "Usage: ./<program> <TROTS_mat_file>\n";
         return -1;

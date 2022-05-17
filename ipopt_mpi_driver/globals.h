@@ -3,8 +3,8 @@
 
 #include <mpi.h>
 
-extern MPI_Comm obj_ranks_comm;
-extern MPI_Comm cons_ranks_comm;
+/*extern MPI_Comm obj_ranks_comm;
+extern MPI_Comm cons_ranks_comm;*/
 
 enum MPIMessageTags {
     NUM_MATS_TAG,
