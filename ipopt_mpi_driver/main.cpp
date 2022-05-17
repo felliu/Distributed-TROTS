@@ -95,9 +95,6 @@ int main(int argc, char* argv[]) {
     int num_ranks = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-
-    /*std::vector<int> obj_ranks;
-    std::vector<int> cons_ranks;*/
     std::vector<std::vector<int>> rank_distrib_obj;
     std::vector<std::vector<int>> rank_distrib_cons;
     TROTSProblem trots_problem;
@@ -117,45 +114,14 @@ int main(int argc, char* argv[]) {
 
         trots_problem = std::move(TROTSProblem{TROTSMatFileData{path}});
 
-        /*//Get the distribution between ranks to calculate terms of the objective
-        //and constraints
-        std::tie(obj_ranks, cons_ranks) = get_obj_cons_rank_idxs(trots_problem);*/
-
-
-        //Create the communicators:
-        //Broadcast the rank distribution info to all other ranks
-        /*int sizes[] = {static_cast<int>(obj_ranks.size()),
-                       static_cast<int>(cons_ranks.size())};*/
-        //First send the sizes of the buffers
-        //MPI_Bcast(&sizes[0], 2, MPI_INT, 0, MPI_COMM_WORLD);
-        /*MPI_Bcast(&obj_ranks[0], obj_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&cons_ranks[0], cons_ranks.size(), MPI_INT, 0, MPI_COMM_WORLD);*/
         rank_local_data.num_vars = trots_problem.get_num_vars();
-        MPI_Bcast(&rank_local_data.num_vars, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    } else {
-        //First involvement of other ranks: get the rank distribution info from rank 0
-        /*int sizes[2];
-        MPI_Bcast(&sizes[0], 2, MPI_INT, 0, MPI_COMM_WORLD);*/
-        /*obj_ranks.resize(sizes[0]);
-        cons_ranks.resize(sizes[1]);*/
-
-        /*MPI_Bcast(&obj_ranks[0], sizes[0], MPI_INT, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&cons_ranks[0], sizes[1], MPI_INT, 0, MPI_COMM_WORLD);*/
-        MPI_Bcast(&rank_local_data.num_vars, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }
 
-    /*std::tie(obj_ranks_comm, cons_ranks_comm) = split_obj_cons_comm(obj_ranks, cons_ranks);
-    const bool is_obj_rank = std::find(obj_ranks.begin(), obj_ranks.end(), world_rank) != obj_ranks.end();
-    const bool is_cons_rank = std::find(cons_ranks.begin(), cons_ranks.end(), world_rank) != cons_ranks.end();*/
-
+    MPI_Bcast(&rank_local_data.num_vars, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (world_rank == 0) {
         int num_ranks = 0;
         MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
-        /*int num_obj_ranks = 0;
-        MPI_Comm_size(obj_ranks_comm, &num_obj_ranks);
-        int num_cons_ranks = 0;
-        MPI_Comm_size(cons_ranks_comm, &num_cons_ranks);*/
 
         //Get a roughly even distribution of the matrices between the ranks, excluding rank 0
         rank_distrib_obj = get_rank_distribution(trots_problem.objective_entries, num_ranks);
@@ -173,6 +139,8 @@ int main(int argc, char* argv[]) {
             print_vector(v);
         }
 
+        dump_distrib_data_to_file(rank_distrib_obj, rank_distrib_cons, trots_problem);
+        return 0;
         distribute_sparse_matrices_send(trots_problem, rank_distrib_obj, rank_distrib_cons);
     }
 

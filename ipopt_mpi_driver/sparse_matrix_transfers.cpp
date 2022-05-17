@@ -134,11 +134,7 @@ void distribute_sparse_matrices_send(
         TROTSProblem& trots_problem,
         const std::vector<std::vector<int>>& rank_distrib_obj,
         const std::vector<std::vector<int>>& rank_distrib_cons) {
-    //When this function is called,
-    //the objective and constraint rank communicators should have been initialized already
-    //assert(obj_ranks_comm != MPI_COMM_NULL && cons_ranks_comm != MPI_COMM_NULL);
-
-    //Check that we're rank zero on all communicators
+    //Check that we're rank 0
     int world_rank = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     int num_ranks = 0;

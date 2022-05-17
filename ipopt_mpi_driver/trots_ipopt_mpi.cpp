@@ -202,14 +202,19 @@ void TROTS_ipopt_mpi::finalize_solution(
 double compute_vals_mpi(bool calc_obj, const double* x, double* cons_vals, bool calc_grad, double* grad,
                         LocalData& local_data, std::optional<ConsDistributionData> distrib_data, bool done) {
     while (true) {
+        //"Task-pool", wait here until rank 0 is requesting function values to be computed
         MPI_Barrier(MPI_COMM_WORLD);
+        //Check if rank 0 is signalling that the optimization is done
         int done_flag = static_cast<int>(done);
         MPI_Bcast(&done_flag, 1, MPI_INT, 0, MPI_COMM_WORLD);
         if (done_flag)
             return 0.0;
+
         int rank;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        double obj_val = 0;
+        double obj_val = 0.0;
+
+        //Are we calculating objectives or constraints?
         int calc_obj_flag = static_cast<int>(calc_obj);
         MPI_Bcast(&calc_obj, 1, MPI_INT, 0, MPI_COMM_WORLD);
         if (calc_obj) {
@@ -218,6 +223,7 @@ double compute_vals_mpi(bool calc_obj, const double* x, double* cons_vals, bool 
             compute_cons_vals_mpi(x, cons_vals, calc_grad, grad, local_data, distrib_data);
         }
 
+        //Rank 0 returns to the optimization solver to continue to the next iteration / step
         if (rank == 0)
             return obj_val;
     }
