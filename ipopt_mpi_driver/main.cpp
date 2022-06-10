@@ -139,8 +139,7 @@ int main(int argc, char* argv[]) {
             print_vector(v);
         }
 
-        dump_distrib_data_to_file(rank_distrib_obj, rank_distrib_cons, trots_problem);
-        return 0;
+        //dump_distrib_data_to_file(rank_distrib_obj, rank_distrib_cons, trots_problem);
         distribute_sparse_matrices_send(trots_problem, rank_distrib_obj, rank_distrib_cons);
     }
 
